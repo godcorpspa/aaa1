@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "287321519422",
+    "project_id": "last-man-standing-5bf1d",
+    "storage_bucket": "last-man-standing-5bf1d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:287321519422:android:f2c118d97a21317ab9286f",
+        "android_client_info": {
+          "package_name": "com.example.last_man_standing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbqt3BrscEULyvKVnwMdhRkLr0qOAIn74"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
