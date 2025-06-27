@@ -492,6 +492,18 @@ class AppTheme {
     );
   }
   
+  /// Colori specifici per Serie A
+  static const Color serieAGreen = Color(0xFF00A651);
+  static const Color serieABlue = Color(0xFF004F9F);
+  static const Color serieARed = Color(0xFFE60012);
+  
+  /// Gradiente Serie A
+  static const LinearGradient serieAGradient = LinearGradient(
+    colors: [serieAGreen, serieABlue],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
   /// Shadow per elevation personalizzata
   static List<BoxShadow> getElevationShadow(double elevation) {
     return [

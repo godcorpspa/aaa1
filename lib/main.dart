@@ -11,6 +11,8 @@ import 'models/matchday.dart';
 import 'models/user_data.dart';
 import 'models/pick.dart';
 import 'screens/welcome_screen.dart';
+import 'screens/stats_screen.dart';
+import 'screens/scegli_screen.dart';
 import 'firebase_options.dart';
 
 // Costanti estratte per migliore manutenibilità
@@ -521,7 +523,7 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
-  Future<void> _showLogoutDialog(BuildContext context) async {
+   Future<void> _showLogoutDialog(BuildContext context) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -551,7 +553,7 @@ class _HomePageState extends ConsumerState<HomePage>
       builder: (context) => AlertDialog(
         title: const Text('Acquista Jolly Vita'),
         content: const Text(
-          'Un Jolly Vita costa €5 e ti permette di salvarti da un\'eliminazione.\n\n'
+          'Un Jolly Vita costa 50 crediti e ti permette di salvarti da un\'eliminazione.\n\n'
           'Vuoi procedere con l\'acquisto?'
         ),
         actions: [
@@ -569,7 +571,7 @@ class _HomePageState extends ConsumerState<HomePage>
                 ),
               );
             },
-            child: const Text('Acquista €5'),
+            child: const Text('Acquista'),
           ),
         ],
       ),
@@ -614,23 +616,46 @@ class _BottomNav extends StatelessWidget {
             label: 'Stats',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.groups),
-            label: 'Teams',
+            icon: Icon(Icons.sports_soccer),
+            label: 'Scegli',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Profile',
+            label: 'Profilo',
           ),
         ],
         onTap: (index) {
-          // TODO: Implementare navigazione tra tab
           if (index != currentIndex) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Sezione in sviluppo'),
-                duration: Duration(seconds: 1),
-              ),
-            );
+            switch (index) {
+              case 0:
+                // Già in Home
+                break;
+              case 1:
+                // Naviga a Stats
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const StatsScreen(),
+                  ),
+                );
+                break;
+              case 2:
+                // Naviga a Scegli
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ScegliScreen(),
+                  ),
+                );
+                break;
+              case 3:
+                // Profile - da implementare
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Sezione Profile in sviluppo'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+                break;
+            }
           }
         },
       ),

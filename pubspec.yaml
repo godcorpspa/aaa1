@@ -39,6 +39,7 @@ dependencies:
   
   # Network & Connectivity
   connectivity_plus: ^6.0.5
+  http: ^1.2.2
   
   # Local Storage & Cache
   shared_preferences: ^2.3.2
@@ -153,7 +154,12 @@ flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/logo.png"
-  min_sdk_android: 21 # android min sdk min:16, default 21
+  min_sdk_android: 21
+  
+  # Rimuove il padding e riempie tutto lo spazio
+  adaptive_icon_background: "#B71C1C"  # Colore di sfondo rosso
+  adaptive_icon_foreground: "assets/logo.png"  # Logo in primo piano
+  
   web:
     generate: true
     image_path: "assets/logo.png"
@@ -162,7 +168,7 @@ flutter_launcher_icons:
   windows:
     generate: true
     image_path: "assets/logo.png"
-    icon_size: 48 # min:48, max:256, default: 48
+    icon_size: 48
   macos:
     generate: true
     image_path: "assets/logo.png"
