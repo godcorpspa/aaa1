@@ -109,7 +109,6 @@ class ClassificaScreen extends ConsumerWidget {
                 SizedBox(width: 30, child: Text('V', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                 SizedBox(width: 30, child: Text('N', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                 SizedBox(width: 30, child: Text('S', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                SizedBox(width: 40, child: Text('DIFF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                 SizedBox(width: 40, child: Text('PTS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
               ],
             ),
@@ -210,20 +209,6 @@ class ClassificaScreen extends ConsumerWidget {
           SizedBox(width: 30, child: Text('${standing.wins}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
           SizedBox(width: 30, child: Text('${standing.draws}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
           SizedBox(width: 30, child: Text('${standing.losses}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
-          
-          // Differenza reti
-          SizedBox(
-            width: 40,
-            child: Text(
-              standing.goalDifference >= 0 ? '+${standing.goalDifference}' : '${standing.goalDifference}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: standing.goalDifference >= 0 ? Colors.green : Colors.red,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
           
           // Punti
           SizedBox(
