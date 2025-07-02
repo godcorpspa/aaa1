@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../theme/app_theme.dart';
 import 'providers.dart';
+import 'shared_providers.dart'; // ← AGGIUNTO
 import 'widgets/gradient_background.dart';
 import 'screens/welcome_screen.dart';
-import 'screens/main_layout.dart'; // Importa il nuovo MainLayout
+import 'screens/main_layout.dart';
+import 'screens/join_league_screen.dart'; // ← AGGIUNTO
 import 'firebase_options.dart';
 
 // Costanti estratte per migliore manutenibilità
@@ -65,6 +67,7 @@ class AuthGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final hasLeagues = ref.watch(hasLeaguesProvider); // ← AGGIUNTO il watch
     
     return authState.when(
       loading: () => Scaffold(
@@ -97,9 +100,9 @@ class AuthGate extends ConsumerWidget {
               children: [
                 const Icon(Icons.error_outline, size: 64, color: Colors.white70),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   'Errore di connessione',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -128,9 +131,27 @@ class AuthGate extends ConsumerWidget {
           ),
         ),
       ),
-      data: (user) => user != null 
-        ? const MainLayout() // Usa MainLayout invece di HomePage
-        : const WelcomeScreen(),
+      data: (user) {
+        // Debug print per vedere cosa sta succedendo
+        final userLeaguesStatus = ref.watch(userLeaguesStatusProvider);
+        print('🔍 AuthGate - User: ${user?.email}');
+        print('🔍 AuthGate - UserId: ${user?.uid}');
+        print('🔍 AuthGate - HasLeagues: $hasLeagues');
+        print('🔍 AuthGate - All Users Status: $userLeaguesStatus');
+        
+        // Se l'utente non è autenticato, mostra welcome screen
+        if (user == null) {
+          return const WelcomeScreen();
+        }
+        
+        // Se l'utente è autenticato ma non ha leghe, mostra JoinLeagueScreen
+        if (!hasLeagues) {
+          return const JoinLeagueScreen();
+        }
+        
+        // Se l'utente è autenticato e ha leghe, mostra MainLayout
+        return const MainLayout();
+      },
     );
   }
 }

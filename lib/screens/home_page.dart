@@ -400,7 +400,7 @@ class _HomePageState extends ConsumerState<HomePage>
               label: Text(
                 userData.jollyLeft >= 3 
                   ? 'LIMITE RAGGIUNTO' 
-                  : 'ACQUISTA JOLLY (50 Crediti)',
+                  : 'ACQUISTA JOLLY',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),

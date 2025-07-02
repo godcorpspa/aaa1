@@ -187,3 +187,34 @@ class Gameweek {
     return upcoming.isNotEmpty ? upcoming.first : null;
   }
 }
+
+class UserLeague {
+  final String id;
+  final String name;
+  final String description;
+  final bool isPrivate;
+  final String creatorName;
+  final DateTime createdAt;
+  final int maxParticipants;
+  final int currentParticipants;
+  final String? inviteCode;
+  final List<String> participants;
+
+  UserLeague({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.isPrivate,
+    required this.creatorName,
+    required this.createdAt,
+    this.maxParticipants = 100,
+    this.currentParticipants = 0,
+    this.inviteCode,
+    this.participants = const [],
+  });
+
+  bool get isFull => currentParticipants >= maxParticipants;
+  bool get isPublic => !isPrivate;
+  
+  bool isParticipant(String userId) => participants.contains(userId);
+}
