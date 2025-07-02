@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ← AGGIUNTO per logout
+import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
-import '../providers.dart'; // Per authServiceProvider (opzionale)
-import '../shared_providers.dart'; // ← AGGIUNTO per hasLeaguesProvider
+import '../providers.dart';
+import '../providers/league_providers.dart';
 import 'public_leagues_screen.dart';
+import 'league_screen.dart';
 
 class JoinLeagueScreen extends ConsumerStatefulWidget {
   const JoinLeagueScreen({super.key});
@@ -54,7 +55,7 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
     // Avvia le animazioni
     _bounceController.forward();
     Future.delayed(const Duration(milliseconds: 300), () {
-      _fadeController.forward();
+      if (mounted) _fadeController.forward();
     });
   }
 
@@ -72,7 +73,7 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        automaticallyImplyLeading: false, // ← AGGIUNTO per rimuovere la freccia
+        automaticallyImplyLeading: false,
         title: const Text(
           'Unisciti ad una Lega',
           style: TextStyle(
@@ -83,7 +84,6 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
         ),
         centerTitle: true,
         actions: [
-          // PULSANTE LOGOUT
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             color: Colors.white,
@@ -113,127 +113,148 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
       extendBodyBehindAppBar: true,
       body: GradientBackground(
         child: SafeArea(
-          child: SingleChildScrollView( // ← AGGIUNTO ScrollView
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-            child: ConstrainedBox( // ← AGGIUNTO per garantire altezza minima
+            child: ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: MediaQuery.of(context).size.height - 
                           MediaQuery.of(context).padding.top - 
                           MediaQuery.of(context).padding.bottom - 48,
               ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20), // Ridotto da 40
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final authState = ref.watch(authProvider);
                   
-                  // Shield Icon con animazione
-                  ScaleTransition(
-                    scale: _bounceAnimation,
-                    child: Container(
-                      width: 100, // Ridotto da 120
-                      height: 100, // Ridotto da 120
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(50), // Aggiornato
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.shield,
-                        size: 50, // Ridotto da 60
-                        color: Colors.white,
-                      ),
+                  return authState.when(
+                    data: (user) {
+                      final userName = user?.displayName ?? 'Utente';
+                      return _buildContent(context, ref, userName);
+                    },
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
                     ),
-                  ),
-                  
-                  const SizedBox(height: 30), // Ridotto da 40
-                  
-                  // Titolo principale con nome utente
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Consumer(
-                      builder: (context, ref, child) {
-                        final authState = ref.watch(authProvider);
-                        
-                        return authState.when(
-                          data: (user) {
-                            // Prende il displayName dell'utente
-                            final userName = user?.displayName ?? 'Utente';
-                            
-                            return Text(
-                              'Benvenuto $userName, sei pronto\nper una nuova sfida.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                height: 1.3,
-                              ),
-                            );
-                          },
-                          loading: () => const Text(
-                            'Benvenuto, sei pronto\nper una nuova sfida.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
-                            ),
-                          ),
-                          error: (_, __) => const Text(
-                            'Benvenuto, sei pronto\nper una nuova sfida.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 40), // Ridotto da 60
-                  
-                  // Sezione Lega Privata
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: _buildLeagueSection(
-                      title: 'Sai già a quale Lega unirti, hai ricevuto un invito o possiedi la parola d\'ordine',
-                      buttonText: 'Unisciti a Lega privata',
-                      buttonColor: AppTheme.accentOrange,
-                      onPressed: () => _showJoinPrivateLeagueDialog(),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 30), // Ridotto da 40
-                  
-                  // Sezione Lega Pubblica
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: _buildLeagueSection(
-                      title: 'Cerca una Lega a cui unirti e trova nuovi amici, magari della tua zona, con cui giocare.',
-                      buttonText: 'Unisciti a Lega pubblica',
-                      buttonColor: AppTheme.accentOrange,
-                      onPressed: () => _navigateToPublicLeagues(),
-                    ),
-                  ),
-                  const SizedBox(height: 30), // Aggiunto spazio fisso
-                ],
+                    error: (_, __) => _buildContent(context, ref, 'Utente'),
+                  );
+                },
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, WidgetRef ref, String userName) {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        
+        // Avatar e info utente
+        _buildUserHeader(userName),
+        
+        const SizedBox(height: 40),
+        
+        // Sezione Crea Lega
+        FadeTransition(
+          opacity: _fadeAnimation,
+          child: _buildLeagueSection(
+            title: 'Organizza il tuo torneo e scegli le tue regole. Invita i tuoi amici o trovane nuovi on-line grazie a noi. Sarai tu a gestire la Lega come Presidente.',
+            buttonText: 'Crea una nuova Lega',
+            buttonColor: AppTheme.accentOrange,
+            icon: Icons.add_circle_outline,
+            onPressed: () => _navigateToCreateLeague(),
+          ),
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Sezione Unisciti a Lega Privata
+        FadeTransition(
+          opacity: _fadeAnimation,
+          child: _buildLeagueSection(
+            title: 'Sai già a quale Lega unirti, hai ricevuto un invito o possiedi la parola d\'ordine',
+            buttonText: 'Unisciti a Lega privata',
+            buttonColor: AppTheme.accentOrange,
+            icon: Icons.lock_outline,
+            onPressed: () => _showJoinPrivateLeagueDialog(),
+          ),
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Sezione Lega Pubblica
+        FadeTransition(
+          opacity: _fadeAnimation,
+          child: _buildLeagueSection(
+            title: 'I tuoi amici ti hanno invitato in una Lega? Vuoi giocare con nuovi amici? Una Lega è già in attesa della tua squadra.',
+            buttonText: 'Unisciti a Lega pubblica',
+            buttonColor: AppTheme.accentOrange,
+            icon: Icons.people_outline,
+            onPressed: () => _navigateToPublicLeagues(),
+          ),
+        ),
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildUserHeader(String userName) {
+    return ScaleTransition(
+      scale: _bounceAnimation,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Avatar fantacalcio
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade600],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(60),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.sports_soccer,
+                size: 60,
+                color: Colors.white,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            const Text(
+              'Il tuo Fantacalcio inizia qui',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                height: 1.3,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 8),
+            
+            Text(
+              'Benvenuto $userName',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
@@ -243,6 +264,7 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
     required String title,
     required String buttonText,
     required Color buttonColor,
+    required IconData icon,
     required VoidCallback onPressed,
   }) {
     return Container(
@@ -265,6 +287,23 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
       ),
       child: Column(
         children: [
+          // Icona
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: buttonColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Icon(
+              icon,
+              color: buttonColor,
+              size: 30,
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
           Text(
             title,
             textAlign: TextAlign.center,
@@ -280,8 +319,10 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
           SizedBox(
             width: double.infinity,
             height: 56,
-            child: ElevatedButton(
+            child: ElevatedButton.icon(
               onPressed: onPressed,
+              icon: Icon(icon, size: 20),
+              label: Text(buttonText),
               style: ElevatedButton.styleFrom(
                 backgroundColor: buttonColor,
                 foregroundColor: Colors.white,
@@ -290,14 +331,6 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
                 ),
                 elevation: 4,
                 shadowColor: buttonColor.withOpacity(0.3),
-              ),
-              child: Text(
-                buttonText,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
               ),
             ),
           ),
@@ -323,6 +356,15 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
     );
   }
 
+  void _navigateToCreateLeague() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreateLeagueScreen(),
+      ),
+    );
+  }
+
   void _showLogoutDialog() {
     showDialog(
       context: context,
@@ -336,7 +378,7 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Chiudi dialog
+              Navigator.pop(context);
               _performLogout();
             },
             style: ElevatedButton.styleFrom(
@@ -352,11 +394,9 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
 
   void _performLogout() async {
     try {
-      // Usa Firebase Auth direttamente invece del provider
       await FirebaseAuth.instance.signOut();
       
       if (mounted) {
-        // Mostra messaggio di successo
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Logout effettuato con successo'),
@@ -364,7 +404,6 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
           ),
         );
         
-        // Torna alla schermata di welcome
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
@@ -380,12 +419,12 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
   }
 }
 
-class _JoinPrivateLeagueDialog extends ConsumerStatefulWidget { // ← CAMBIATO da StatefulWidget
+class _JoinPrivateLeagueDialog extends ConsumerStatefulWidget {
   @override
-  ConsumerState<_JoinPrivateLeagueDialog> createState() => _JoinPrivateLeagueDialogState(); // ← CAMBIATO
+  ConsumerState<_JoinPrivateLeagueDialog> createState() => _JoinPrivateLeagueDialogState();
 }
 
-class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDialog> { // ← CAMBIATO
+class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDialog> {
   final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -400,10 +439,30 @@ class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDial
 
   @override
   Widget build(BuildContext context) {
+    // Ascolta lo stato del join
+    ref.listen(joinLeagueStateProvider, (previous, next) {
+      if (next.status == JoinLeagueStatus.success) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ti sei unito alla lega con successo!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else if (next.status == JoinLeagueStatus.error) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = next.errorMessage;
+        });
+      }
+    });
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.7,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
@@ -419,140 +478,258 @@ class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDial
           mainAxisSize: MainAxisSize.min,
           children: [
             // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentOrange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.lock,
-                    color: AppTheme.accentOrange,
-                    size: 24,
-                  ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: AppTheme.accentOrange,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
                 ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Text(
-                    'Unisciti a Lega Privata',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.lock,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Text(
+                          'Unisciti a Lega Privata',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Search Bar
+                  TextField(
+                    controller: _codeController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Inserisci il codice della lega',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                      prefixIcon: Icon(
+                        Icons.vpn_key,
+                        color: Colors.white.withOpacity(0.7),
+                      ),
+                      suffixIcon: _codeController.text.isNotEmpty
+                          ? IconButton(
+                              onPressed: () {
+                                _codeController.clear();
+                                setState(() {});
+                              },
+                              icon: const Icon(Icons.clear, color: Colors.white),
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.2),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
+                    textCapitalization: TextCapitalization.characters,
+                    onChanged: (_) => setState(() {}),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Codice invito
-            TextField(
-              controller: _codeController,
-              decoration: InputDecoration(
-                labelText: 'Codice invito',
-                hintText: 'Inserisci il codice della lega',
-                prefixIcon: const Icon(Icons.vpn_key),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-              ),
-              textCapitalization: TextCapitalization.characters,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Password (opzionale)
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Password (se richiesta)',
-                hintText: 'Inserisci la password',
-                prefixIcon: const Icon(Icons.password),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
+                ],
               ),
             ),
             
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                ),
-                child: Row(
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: Colors.red),
+                    const Text(
+                      'Codice Invito',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Inserisci il codice che hai ricevuto dal creatore della lega. Il codice è formato da 6 caratteri (es. LMS123ABC).',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Password (opzionale)
+                    const Text(
+                      'Password (se richiesta)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        hintText: 'Password della lega',
+                        prefixIcon: const Icon(Icons.password),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[50],
+                      ),
+                    ),
+                    
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    
+                    const Spacer(),
+                    
+                    // Info aggiuntive
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Non hai il codice? Chiedi al creatore della lega di condividerlo con te.',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
+            ),
             
-            const SizedBox(height: 24),
-            
-            // Pulsanti azione
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Annulla'),
-                  ),
+            // Bottom Actions
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _joinPrivateLeague,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentOrange,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: const BorderSide(color: AppTheme.accentOrange),
+                      ),
+                      child: const Text(
+                        'Annulla',
+                        style: TextStyle(
+                          color: AppTheme.accentOrange,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _codeController.text.trim().isEmpty || _isLoading 
+                        ? null 
+                        : _joinPrivateLeague,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentOrange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Unisciti',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          )
-                        : const Text('Unisciti'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -571,38 +748,10 @@ class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDial
       _errorMessage = null;
     });
 
-    try {
-      // Simula chiamata API per ora
-      await Future.delayed(const Duration(seconds: 2));
-      
-      if (mounted) {
-        Navigator.pop(context);
-        
-        // Imposta che QUESTO UTENTE specifico ha ora una lega
-        final user = ref.read(authProvider).valueOrNull;
-        if (user != null) {
-          final currentStatus = ref.read(userLeaguesStatusProvider);
-          ref.read(userLeaguesStatusProvider.notifier).state = {
-            ...currentStatus,
-            user.uid: true, // Solo per questo utente
-          };
-        }
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ti sei unito alla lega con successo!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        
-        // L'AuthGate si aggiornerà automaticamente e mostrerà la MainLayout
-      }
-    } catch (e) {
-      setState(() => _errorMessage = 'Errore nell\'unirsi alla lega: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    // Usa il provider per unirsi alla lega
+    ref.read(joinLeagueStateProvider.notifier).joinLeagueByInviteCode(
+      inviteCode: _codeController.text.trim(),
+      password: _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim(),
+    );
   }
 }
