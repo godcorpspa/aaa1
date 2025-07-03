@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import '../providers.dart';
 import '../providers/league_providers.dart';
 import 'public_leagues_screen.dart';
-import 'league_screen.dart';
+import 'create_league_screen.dart';
 
 class JoinLeagueScreen extends ConsumerStatefulWidget {
   const JoinLeagueScreen({super.key});
