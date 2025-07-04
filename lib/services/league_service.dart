@@ -92,23 +92,49 @@ class LeagueService {
       Query leaguesQuery = _db
           .collection('leagues')
           .where('isPrivate', isEqualTo: false)
-          .where('status', isEqualTo: LeagueStatus.waiting.name)
           .orderBy('createdAt', descending: true)
           .limit(limit);
 
+      final snapshot = await leaguesQuery.get();
+      
+      print('🔍 Leghe pubbliche trovate: ${snapshot.docs.length}');
+      
+      final leagues = snapshot.docs
+          .map((doc) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              print('📄 Lega: ${data['name']} - Private: ${data['isPrivate']} - Status: ${data['status']}');
+              
+              return LastManStandingLeague.fromJson({
+                'id': doc.id,
+                ...data
+              });
+            } catch (e) {
+              print('❌ Errore parsing lega ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((league) => league != null)
+          .cast<LastManStandingLeague>()
+          .where((league) => 
+            // Filtra solo leghe pubbliche in stato waiting
+            !league.isPrivate && 
+            league.status == LeagueStatus.waiting
+          )
+          .toList();
+
+      // Se c'è una query, filtra per nome
       if (query != null && query.trim().isNotEmpty) {
-        // Firestore non supporta ricerca full-text, implementa logica base
-        leaguesQuery = leaguesQuery.where('name', isGreaterThanOrEqualTo: query);
+        final searchQuery = query.toLowerCase();
+        return leagues.where((league) => 
+          league.name.toLowerCase().contains(searchQuery) ||
+          league.description.toLowerCase().contains(searchQuery)
+        ).toList();
       }
 
-      final snapshot = await leaguesQuery.get();
-      return snapshot.docs
-          .map((doc) => LastManStandingLeague.fromJson({
-                'id': doc.id,
-                ...doc.data() as Map<String, dynamic>
-              }))
-          .toList();
+      return leagues;
     } catch (e) {
+      print('❌ Errore searchPublicLeagues: $e');
       throw LeagueException('Errore nella ricerca delle leghe: $e');
     }
   }

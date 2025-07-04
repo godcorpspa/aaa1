@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:last_man_standing/models/league_models.dart' show LeagueSettings;
+import 'package:last_man_standing/models/league_models.dart' show LeagueSettings, LastManStandingLeague;
 import 'package:last_man_standing/providers/league_providers.dart' show userLeaguesProvider, leagueServiceProvider;
 import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
@@ -537,14 +538,19 @@ class _CreateLeagueScreenState extends ConsumerState<CreateLeagueScreen>
         // Forza un refresh del provider delle leghe
         ref.invalidate(userLeaguesProvider);
         
-        // Mostra messaggio di successo
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lega "${league.name}" creata con successo!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        // Se la lega è privata, mostra il codice invito
+        if (league.isPrivate && league.inviteCode != null) {
+          await _showInviteCodeDialog(league);
+        } else {
+          // Mostra messaggio di successo per leghe pubbliche
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lega "${league.name}" creata con successo!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
 
         // Attendi brevemente che lo stato si aggiorni
         await Future.delayed(const Duration(milliseconds: 500));
@@ -561,5 +567,155 @@ class _CreateLeagueScreenState extends ConsumerState<CreateLeagueScreen>
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _showInviteCodeDialog(LastManStandingLeague league) async {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Lega Creata con Successo!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'La tua lega "${league.name}" è stata creata!',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.accentOrange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.accentOrange.withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'CODICE INVITO',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.accentOrange,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        league.inviteCode!,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.accentOrange,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: league.inviteCode!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Codice copiato negli appunti!'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.copy,
+                          color: AppTheme.accentOrange,
+                        ),
+                        tooltip: 'Copia codice',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Condividi questo codice con i tuoi amici\nper farli unire alla lega.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            if (league.requirePassword) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.amber.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Ricorda di comunicare anche la password!',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Copia il testo completo negli appunti
+              final shareText = 'Unisciti alla mia lega "${league.name}" su Last Man Standing!\n\n'
+                  'Codice invito: ${league.inviteCode}\n'
+                  '${league.requirePassword ? '\nRicordati di chiedere la password!' : ''}';
+              
+              Clipboard.setData(ClipboardData(text: shareText));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Testo copiato negli appunti!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('Copia Invito'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentOrange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 }

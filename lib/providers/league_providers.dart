@@ -49,7 +49,15 @@ final publicLeaguesProvider = FutureProvider.family<List<LastManStandingLeague>,
   final leagueService = ref.read(leagueServiceProvider);
   
   try {
-    return await leagueService.searchPublicLeagues(query: query);
+    // Ottieni tutte le leghe pubbliche in stato waiting
+    final leagues = await leagueService.searchPublicLeagues(query: query);
+    
+    // Filtra ulteriormente per essere sicuri che siano pubbliche e aperte
+    return leagues.where((league) => 
+      !league.isPrivate && 
+      league.status == LeagueStatus.waiting &&
+      !league.isFull
+    ).toList();
   } catch (e) {
     throw LeagueException('Errore nel caricamento delle leghe pubbliche: $e');
   }

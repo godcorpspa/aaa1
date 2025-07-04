@@ -6,55 +6,14 @@ import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
 import '../models/league_models.dart';
 
-// Mock data per le leghe pubbliche - RIMOSSO il provider duplicato
-final mockPublicLeagues = [
-  UserLeague(
-    id: '1',
-    name: 'Lega Amici Milano',
-    description: 'Lega per tutti gli amici di Milano che amano il calcio',
-    isPrivate: false,
-    creatorName: 'Marco Rossi',
-    createdAt: DateTime.now().subtract(const Duration(days: 5)),
-    currentParticipants: 15,
-    maxParticipants: 50,
-  ),
-  UserLeague(
-    id: '2',
-    name: 'Champions League Roma',
-    description: 'La sfida più grande per i veri esperti di calcio',
-    isPrivate: false,
-    creatorName: 'Giuseppe Verdi',
-    createdAt: DateTime.now().subtract(const Duration(days: 3)),
-    currentParticipants: 32,
-    maxParticipants: 100,
-  ),
-  UserLeague(
-    id: '3',
-    name: 'Serie A Napoli',
-    description: 'Forza Napoli! Lega dedicata ai tifosi partenopei',
-    isPrivate: false,
-    creatorName: 'Antonio Conte',
-    createdAt: DateTime.now().subtract(const Duration(days: 7)),
-    currentParticipants: 8,
-    maxParticipants: 30,
-  ),
-  UserLeague(
-    id: '4',
-    name: 'Juventini DOC',
-    description: 'Solo per i veri tifosi bianconeri. Fino alla fine!',
-    isPrivate: false,
-    creatorName: 'Alessandro Del Piero',
-    createdAt: DateTime.now().subtract(const Duration(days: 2)),
-    currentParticipants: 45,
-    maxParticipants: 50,
-  ),
-];
-
 class PublicLeaguesScreen extends ConsumerWidget {
   const PublicLeaguesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Usa il provider per ottenere le leghe pubbliche dal database
+    final publicLeaguesAsync = ref.watch(publicLeaguesProvider(null));
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -77,7 +36,7 @@ class PublicLeaguesScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
-              // Refresh placeholder
+              ref.invalidate(publicLeaguesProvider);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Aggiornamento completato')),
               );
@@ -88,7 +47,13 @@ class PublicLeaguesScreen extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       body: GradientBackground(
         child: SafeArea(
-          child: _buildContent(context, ref, mockPublicLeagues),
+          child: publicLeaguesAsync.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            error: (error, stack) => _buildErrorWidget(context, ref, error),
+            data: (leagues) => _buildContent(context, ref, leagues.cast<UserLeague>()),
+          ),
         ),
       ),
     );
@@ -422,4 +387,8 @@ class PublicLeaguesScreen extends ConsumerWidget {
     }
   }
   }
+}
+
+_buildErrorWidget(BuildContext context, WidgetRef ref, Object error) {
+  print('Errore ciao');
 }
