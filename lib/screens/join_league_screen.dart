@@ -233,8 +233,8 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
             
             const SizedBox(height: 20),
             
-            const Text(
-              'Il tuo Fantacalcio inizia qui',
+            Text(
+              'Benvenuto $userName',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
@@ -247,7 +247,7 @@ class _JoinLeagueScreenState extends ConsumerState<JoinLeagueScreen>
             const SizedBox(height: 8),
             
             Text(
-              'Benvenuto $userName',
+              'Il tuo gioco inizia qui',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.8),
                 fontSize: 16,
@@ -442,6 +442,9 @@ class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDial
     // Ascolta lo stato del join
     ref.listen(joinLeagueStateProvider, (previous, next) {
       if (next.status == JoinLeagueStatus.success) {
+        // Forza refresh delle leghe utente
+        ref.invalidate(userLeaguesProvider);
+        
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -449,7 +452,13 @@ class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDial
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        
+        // Attendi brevemente e naviga alla home
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (context.mounted) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        });
       } else if (next.status == JoinLeagueStatus.error) {
         setState(() {
           _isLoading = false;
@@ -748,10 +757,19 @@ class _JoinPrivateLeagueDialogState extends ConsumerState<_JoinPrivateLeagueDial
       _errorMessage = null;
     });
 
-    // Usa il provider per unirsi alla lega
-    ref.read(joinLeagueStateProvider.notifier).joinLeagueByInviteCode(
-      inviteCode: _codeController.text.trim(),
-      password: _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim(),
-    );
+    try {
+      // Usa il provider per unirsi alla lega
+      await ref.read(joinLeagueStateProvider.notifier).joinLeagueByInviteCode(
+        inviteCode: _codeController.text.trim(),
+        password: _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim(),
+      );
+      
+      // Il listener nel build gestirà la navigazione
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString();
+      });
+    }
   }
 }

@@ -1,33 +1,47 @@
 // lib/providers/league_providers.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:last_man_standing/providers.dart' show authProvider;
 import '../services/league_service.dart';
 import '../models/league_models.dart';
 
 // === PROVIDER BASE ===
 
-/// Provider per il servizio delle leghe
 final leagueServiceProvider = Provider<LeagueService>((ref) {
   return LeagueService();
 });
 
-// === PROVIDER GESTIONE LEGHE ===
+// === PROVIDER USER-SPECIFIC ===
 
-/// Provider per verificare se l'utente ha leghe attive
+/// Provider per verificare se l'UTENTE CORRENTE ha leghe attive
 final userHasLeaguesProvider = FutureProvider<bool>((ref) async {
+  final authState = ref.watch(authProvider);
+  final user = authState.valueOrNull;
+  
+  if (user == null) return false;
+  
   final leagueService = ref.read(leagueServiceProvider);
   
   try {
-    return await leagueService.userHasActiveLeagues();
+    // Passa esplicitamente l'userId per essere sicuri
+    return await leagueService.userHasActiveLeagues(user.uid);
   } catch (e) {
-    // In caso di errore, assume che non abbia leghe
+    print('❌ Errore verifica leghe per utente ${user.uid}: $e');
     return false;
   }
 });
 
-/// Provider per le leghe dell'utente corrente
-final userLeaguesProvider = StreamProvider<List<LastManStandingLeague>>((ref) {
+/// Provider per le leghe dell'utente corrente - FAMILY provider per user ID
+final userLeaguesProvider =
+    StreamProvider.family<List<LastManStandingLeague>, String>((ref, userId) {
   final leagueService = ref.read(leagueServiceProvider);
-  return leagueService.getUserLeagues();
+  return leagueService.getUserLeagues(userId);
+});
+
+// helper per l’utente corrente
+final currentUserLeaguesProvider = StreamProvider<List<LastManStandingLeague>>((ref) {
+  final userId = ref.watch(authProvider).valueOrNull?.uid;
+  if (userId == null) return Stream.value([]);
+  return ref.watch(userLeaguesProvider(userId).stream);
 });
 
 /// Provider per leghe pubbliche disponibili
@@ -294,9 +308,9 @@ enum JoinLeagueStatus {
 
 /// Provider che combina lo stato di autenticazione e leghe utente
 final userLeaguesStatusProvider = Provider<AsyncValue<bool>>((ref) {
-  final userLeaguesAsync = ref.watch(userLeaguesProvider);
-  
-  return userLeaguesAsync.when(
+  final leaguesAsync = ref.watch(currentUserLeaguesProvider);
+
+  return leaguesAsync.when(
     data: (leagues) => AsyncValue.data(leagues.isNotEmpty),
     loading: () => const AsyncValue.loading(),
     error: (error, stack) => AsyncValue.error(error, stack),

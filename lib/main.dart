@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'dart:async';  
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:last_man_standing/providers/league_providers.dart' show userHasLeaguesProvider, currentUserLeaguesProvider, userLeaguesProvider;
 import '../theme/app_theme.dart';
 import 'providers.dart';
 import 'shared_providers.dart'; // ← AGGIUNTO
@@ -39,11 +40,31 @@ Future<void> main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Listener per pulire cache quando cambia utente
+    ref.listen(authProvider, (previous, next) {
+      final previousUser = previous?.valueOrNull;
+      final currentUser = next.valueOrNull;
+      
+      // Se l'utente è cambiato (login/logout)
+      if (previousUser?.uid != currentUser?.uid) {
+        print('🔄 Utente cambiato da ${previousUser?.uid} a ${currentUser?.uid}');
+        
+        // Invalida tutti i provider user-specific
+        ref.invalidate(userHasLeaguesProvider);
+        ref.invalidate(currentUserLeaguesProvider);
+        
+        // Se c'era un utente precedente, invalida anche i suoi provider
+        if (previousUser != null) {
+          ref.invalidate(userLeaguesProvider(previousUser.uid));
+        }
+      }
+    });
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       locale: const Locale('it'),
@@ -54,7 +75,7 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('en'), Locale('it')],
       title: AppConstants.appTitle,
-      theme: AppTheme.theme, // Usa il tema definito
+      theme: AppTheme.theme,
       home: const AuthGate(),
     );
   }
@@ -67,7 +88,7 @@ class AuthGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final hasLeagues = ref.watch(hasLeaguesProvider); // ← AGGIUNTO il watch
+    final hasLeagues = ref.watch(hasLeaguesProvider);
     
     return authState.when(
       loading: () => Scaffold(
@@ -133,11 +154,8 @@ class AuthGate extends ConsumerWidget {
       ),
       data: (user) {
         // Debug print per vedere cosa sta succedendo
-        final userLeaguesStatus = ref.watch(userLeaguesStatusProvider);
-        print('🔍 AuthGate - User: ${user?.email}');
-        print('🔍 AuthGate - UserId: ${user?.uid}');
+        print('🔍 AuthGate - User: ${user?.email} (${user?.uid})');
         print('🔍 AuthGate - HasLeagues: $hasLeagues');
-        print('🔍 AuthGate - All Users Status: $userLeaguesStatus');
         
         // Se l'utente non è autenticato, mostra welcome screen
         if (user == null) {

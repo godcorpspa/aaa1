@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:last_man_standing/models/league_models.dart' show LeagueSettings;
+import 'package:last_man_standing/providers/league_providers.dart' show userLeaguesProvider, leagueServiceProvider;
 import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
-import '../shared_providers.dart';
+
 // Screen per creare una nuova lega Last Man Standing
 
 class CreateLeagueScreen extends ConsumerStatefulWidget {
@@ -517,50 +518,36 @@ class _CreateLeagueScreenState extends ConsumerState<CreateLeagueScreen>
     });
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Utente non autenticato');
-      }
-
-      // Simula creazione lega
-      await Future.delayed(const Duration(seconds: 2));
-
-      final leagueData = {
-        'name': _nameController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'maxParticipants': int.parse(_maxParticipantsController.text),
-        'isPrivate': _isPrivate,
-        'requirePassword': _requirePassword,
-        'password': _requirePassword ? _passwordController.text : null,
-        'allowJolly': _allowJolly,
-        'allowDoubleDown': _allowDoubleDown,
-        'enableThemedRounds': _enableThemedRounds,
-        'creatorId': user.uid,
-        'creatorName': user.displayName ?? 'Utente',
-        'createdAt': DateTime.now().toIso8601String(),
-        'participants': [user.uid],
-        'currentParticipants': 1,
-      };
-
-      print('🎯 Lega creata: $leagueData');
+      // Usa il servizio leghe per creare
+      final league = await ref.read(leagueServiceProvider).createLeague(
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim(),
+        maxParticipants: int.parse(_maxParticipantsController.text),
+        isPrivate: _isPrivate,
+        requirePassword: _requirePassword,
+        password: _requirePassword ? _passwordController.text : null,
+        settings: LeagueSettings(
+          allowJolly: _allowJolly,
+          allowDoubleDown: _allowDoubleDown,
+          enableThemedRounds: _enableThemedRounds,
+        ),
+      );
 
       if (mounted) {
-        // Imposta che l'utente ora ha una lega
-        final container = ProviderScope.containerOf(context);
-        final currentStatus = container.read(userLeaguesStatusProvider);
-        container.read(userLeaguesStatusProvider.notifier).state = {
-          ...currentStatus,
-          user.uid: true,
-        };
-
+        // Forza un refresh del provider delle leghe
+        ref.invalidate(userLeaguesProvider);
+        
         // Mostra messaggio di successo
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lega "${_nameController.text.trim()}" creata con successo!'),
+            content: Text('Lega "${league.name}" creata con successo!'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
         );
+
+        // Attendi brevemente che lo stato si aggiorni
+        await Future.delayed(const Duration(milliseconds: 500));
 
         // Torna alla home
         Navigator.of(context).popUntil((route) => route.isFirst);

@@ -1,10 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:last_man_standing/providers/league_providers.dart';
 import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
 import '../models/league_models.dart';
-import '../shared_providers.dart'; // ← Provider condiviso
-import '../providers.dart';
 
 // Mock data per le leghe pubbliche - RIMOSSO il provider duplicato
 final mockPublicLeagues = [
@@ -375,50 +375,51 @@ class PublicLeaguesScreen extends ConsumerWidget {
       );
 
       // Simula chiamata API
-      await Future.delayed(const Duration(seconds: 2));
+      await ref.read(leagueServiceProvider).joinLeague(
+        leagueId: league.id,
+        password: null, // o richiedi password se necessario
+      );
 
       if (context.mounted) {
-        // Chiudi il loading dialog
-        Navigator.pop(context);
-        
-        // Imposta che QUESTO UTENTE specifico ha ora una lega
-        final container = ProviderScope.containerOf(context);
-        final authState = container.read(authProvider);
-        final user = authState.valueOrNull;
-        
-        if (user != null) {
-          final currentStatus = container.read(userLeaguesStatusProvider);
-          container.read(userLeaguesStatusProvider.notifier).state = {
-            ...currentStatus,
-            user.uid: true, // Solo per questo utente
-          };
-        }
-        
-        // Mostra successo
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ti sei unito alla lega "${league.name}" con successo!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        
-        // L'AuthGate si aggiornerà automaticamente e mostrerà la MainLayout
-        // Torna alla schermata principale
-        Navigator.of(context).popUntil((route) => route.isFirst);
+      // Chiudi il loading dialog
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        ref.invalidate(userLeaguesProvider(user.uid));
+        ref.invalidate(currentUserLeaguesProvider);
+        ref.invalidate(userHasLeaguesProvider);
       }
-    } catch (e) {
-      if (context.mounted) {
-        // Chiudi il loading dialog
-        Navigator.pop(context);
-        
-        // Mostra errore
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Errore: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      Navigator.pop(context);
+      
+      // Mostra successo
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ti sei unito alla lega "${league.name}" con successo!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      // Forza un refresh del provider delle leghe
+      ref.invalidate(userLeaguesProvider);
+      
+      // Attendi brevemente che lo stato si aggiorni
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Torna alla schermata principale
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
+  } catch (e) {
+    if (context.mounted) {
+      // Chiudi il loading dialog
+      Navigator.pop(context);
+      
+      // Mostra errore
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Errore: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
   }
 }

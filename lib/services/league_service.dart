@@ -69,10 +69,10 @@ class LeagueService {
         
         // Aggiorna il profilo utente
         final userRef = _db.collection('users').doc(user.uid);
-        transaction.update(userRef, {
+        transaction.set(userRef, {
           'currentLeagues': FieldValue.arrayUnion([leagueId]),
           'createdLeagues': FieldValue.arrayUnion([leagueId]),
-        });
+        }, SetOptions(merge: true));
       });
 
       return league;
@@ -199,44 +199,55 @@ class LeagueService {
 
   // === GESTIONE LEGHE UTENTE ===
   
-  /// Ottieni le leghe dell'utente corrente
-  Stream<List<LastManStandingLeague>> getUserLeagues() {
-    final user = _auth.currentUser;
-    if (user == null) return Stream.value([]);
+  // MODIFICA i metodi esistenti così:
 
-    return _db
-        .collection('leagues')
-        .where('participants', arrayContains: user.uid)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
+/// Ottieni le leghe dell'utente corrente o di un utente specifico
+Stream<List<LastManStandingLeague>> getUserLeagues([String? userId]) {
+  // Se non viene passato un userId, usa l'utente corrente
+  final targetUserId = userId ?? _auth.currentUser?.uid;
+  
+  if (targetUserId == null) return Stream.value([]);
+
+  return _db
+      .collection('leagues')
+      .where('participants', arrayContains: targetUserId)
+      .snapshots()
+      .map((snapshot) {
+        print('🔍 Leghe trovate per utente $targetUserId: ${snapshot.docs.length}');
+        return snapshot.docs
             .map((doc) => LastManStandingLeague.fromJson({
                   'id': doc.id,
                   ...doc.data()
                 }))
-            .toList());
+            .toList();
+      });
+}
+
+/// Verifica se l'utente corrente o un utente specifico ha leghe attive
+Future<bool> userHasActiveLeagues([String? userId]) async {
+  // Se non viene passato un userId, usa l'utente corrente
+  final targetUserId = userId ?? _auth.currentUser?.uid;
+  
+  if (targetUserId == null) return false;
+
+  try {
+    final snapshot = await _db
+        .collection('leagues')
+        .where('participants', arrayContains: targetUserId)
+        .where('status', whereIn: [
+          LeagueStatus.waiting.name,
+          LeagueStatus.active.name,
+        ])
+        .limit(1)
+        .get();
+
+    print('🔍 Utente $targetUserId ha leghe attive: ${snapshot.docs.isNotEmpty}');
+    return snapshot.docs.isNotEmpty;
+  } catch (e) {
+    print('❌ Errore verifica leghe per $targetUserId: $e');
+    return false;
   }
-
-  /// Verifica se l'utente ha leghe attive
-  Future<bool> userHasActiveLeagues() async {
-    final user = _auth.currentUser;
-    if (user == null) return false;
-
-    try {
-      final snapshot = await _db
-          .collection('leagues')
-          .where('participants', arrayContains: user.uid)
-          .where('status', whereIn: [
-            LeagueStatus.waiting.name,
-            LeagueStatus.active.name,
-          ])
-          .limit(1)
-          .get();
-
-      return snapshot.docs.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
-  }
+}
 
   /// Ottieni dettagli di una lega specifica
   Future<LastManStandingLeague?> getLeague(String leagueId) async {

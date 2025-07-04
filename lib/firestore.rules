@@ -1,0 +1,33 @@
+// firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regole per le leghe
+    match /leagues/{leagueId} {
+      // Lettura: solo se l'utente è partecipante o la lega è pubblica
+      allow read: if request.auth != null && 
+        (request.auth.uid in resource.data.participants || 
+         resource.data.isPrivate == false);
+      
+      // Scrittura: solo se autenticato
+      allow create: if request.auth != null;
+      
+      // Update: solo se admin o creator
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.creatorId ||
+         request.auth.uid in resource.data.admins);
+    }
+    
+    // Regole per i partecipanti
+    match /leagues/{leagueId}/participants/{participantId} {
+      allow read: if request.auth != null && 
+        request.auth.uid in get(/databases/$(database)/documents/leagues/$(leagueId)).data.participants;
+      allow write: if request.auth != null;
+    }
+    
+    // Regole per gli utenti
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
