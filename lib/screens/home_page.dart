@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:last_man_standing/shared_providers.dart' show selectedLeagueDetailsProvider;
 import 'dart:async';
 import '../providers.dart';
 import '../models/matchday.dart';
@@ -155,14 +156,64 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Widget _buildHeader(ThemeData theme) {
-    return Text(
-      'LAST MAN STANDING - SERIE A',
-      textAlign: TextAlign.center,
-      style: theme.textTheme.labelLarge!.copyWith(
-        color: Colors.white70,
-        letterSpacing: 2,
-        fontWeight: FontWeight.w500,
-      ),
+    final selectedLeagueDetails = ref.watch(selectedLeagueDetailsProvider);
+    
+    return Column(
+      children: [
+        Text(
+          'LAST MAN STANDING - SERIE A',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.labelLarge!.copyWith(
+            color: Colors.white70,
+            letterSpacing: 2,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        
+        // Mostra la lega selezionata
+        selectedLeagueDetails.when(
+          data: (league) {
+            if (league == null) return const SizedBox.shrink();
+            
+            return Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentOrange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppTheme.accentOrange.withOpacity(0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        league.isPrivate ? Icons.lock : Icons.public,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        league.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 

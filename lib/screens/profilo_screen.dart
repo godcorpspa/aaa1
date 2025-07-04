@@ -3,6 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers.dart';
 import '../theme/app_theme.dart';
+import '../models/league_models.dart';
+import '../shared_providers.dart';
+import '../providers/league_providers.dart';
+import 'create_league_screen.dart';
+import 'join_league_screen.dart';
+import 'public_leagues_screen.dart';
 
 class ProfiloScreen extends ConsumerWidget {
   const ProfiloScreen({super.key});
@@ -41,16 +47,19 @@ class ProfiloScreen extends ConsumerWidget {
             child: CircularProgressIndicator(color: Colors.white),
           ),
           error: (error, stack) => _buildErrorWidget(context, error),
-          data: (userData) => _buildContent(context, user, userData),
+          data: (userData) => _buildContent(context, ref, user, userData), // PASSA ref QUI
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, User? user, dynamic userData) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, User? user, dynamic userData) {
     if (user == null) {
       return _buildNotAuthenticatedView();
     }
+
+    final userLeagues = ref.watch(currentUserLeaguesProvider);
+    final selectedLeague = ref.watch(selectedLeagueProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -60,6 +69,11 @@ class ProfiloScreen extends ConsumerWidget {
           
           // Avatar e info utente
           _buildUserHeader(user, userData),
+          
+          const SizedBox(height: 32),
+          
+          // Sezione Leghe - PASSA ref QUI
+          _buildLeaguesSection(context, ref, userLeagues, selectedLeague),
           
           const SizedBox(height: 32),
           
@@ -79,6 +93,316 @@ class ProfiloScreen extends ConsumerWidget {
       ),
     );
   }
+
+// Aggiungi questo nuovo metodo per la sezione leghe
+Widget _buildLeaguesSection(
+  BuildContext context,
+  WidgetRef ref, // AGGIUNGI ref
+  AsyncValue<List<LastManStandingLeague>> userLeagues,
+  String? selectedLeague,
+) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.white.withOpacity(0.2)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.groups, color: Colors.white, size: 24),
+            const SizedBox(width: 12),
+            const Text(
+              'LE MIE LEGHE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+            const Spacer(),
+            // Pulsante per gestire leghe
+            IconButton(
+              onPressed: () => _showLeagueManagementDialog(context),
+              icon: const Icon(Icons.settings, color: Colors.white70),
+              tooltip: 'Gestisci leghe',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        userLeagues.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+          error: (error, stack) => Text(
+            'Errore nel caricamento leghe',
+            style: TextStyle(color: Colors.red.shade300),
+          ),
+          data: (leagues) {
+            if (leagues.isEmpty) {
+              return _buildNoLeaguesWidget(context);
+            }
+            
+            return Column(
+              children: [
+                // Lista delle leghe con selezione
+                ...leagues.map((league) => _buildLeagueItem(
+                  league,
+                  isSelected: league.id == selectedLeague,
+                  onTap: () {
+                    ref.read(selectedLeagueProvider.notifier).selectLeague(league.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lega "${league.name}" selezionata'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                )).toList(),
+                
+                const SizedBox(height: 16),
+                
+                // Pulsanti azione
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateToCreateLeague(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Crea Lega'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _navigateToJoinLeague(context),
+                        icon: const Icon(Icons.group_add),
+                        label: const Text('Unisciti'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildLeagueItem(
+  LastManStandingLeague league,
+  {required bool isSelected, required VoidCallback onTap}
+) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isSelected 
+              ? AppTheme.accentOrange.withOpacity(0.2)
+              : Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected 
+                ? AppTheme.accentOrange
+                : Colors.white.withOpacity(0.2),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Icona lega
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected 
+                    ? AppTheme.accentOrange
+                    : Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  league.isPrivate ? Icons.lock : Icons.public,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              
+              // Info lega
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      league.name,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${league.currentParticipants} partecipanti • ${league.stats.activePlayers} attivi',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Indicatore selezione
+              if (isSelected)
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentOrange,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildNoLeaguesWidget(BuildContext context) {
+  return Container(
+    padding: const EdgeInsets.all(24),
+    child: Column(
+      children: [
+        Icon(
+          Icons.groups_outlined,
+          size: 48,
+          color: Colors.white.withOpacity(0.5),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Non fai parte di nessuna lega',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+            fontSize: 16,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          onPressed: () => _navigateToJoinLeague(context),
+          icon: const Icon(Icons.add),
+          label: const Text('Unisciti o Crea una Lega'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.accentOrange,
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Aggiungi questi metodi di navigazione
+void _navigateToCreateLeague(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const CreateLeagueScreen()),
+  );
+}
+
+void _navigateToJoinLeague(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const JoinLeagueScreen()),
+  );
+}
+
+void _showLeagueManagementDialog(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Gestione Leghe',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ListTile(
+            leading: const Icon(Icons.add_circle_outline),
+            title: const Text('Crea nuova lega'),
+            onTap: () {
+              Navigator.pop(context);
+              _navigateToCreateLeague(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.group_add),
+            title: const Text('Unisciti a una lega'),
+            onTap: () {
+              Navigator.pop(context);
+              _navigateToJoinLeague(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.search),
+            title: const Text('Cerca leghe pubbliche'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PublicLeaguesScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildUserHeader(User user, dynamic userData) {
     final displayName = user.displayName ?? userData?.displayName ?? 'Utente';
