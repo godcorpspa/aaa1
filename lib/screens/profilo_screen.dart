@@ -77,11 +77,6 @@ class ProfiloScreen extends ConsumerWidget {
           
           const SizedBox(height: 32),
           
-          // Statistiche dettagliate
-          _buildDetailedStats(userData),
-          
-          const SizedBox(height: 32),
-          
           // Azioni profilo
           _buildProfileActions(context),
           
@@ -534,163 +529,6 @@ void _showLeagueManagementDialog(BuildContext context) {
     );
   }
 
-  Widget _buildDetailedStats(dynamic userData) {
-    final jollyLeft = userData?.jollyLeft ?? 0;
-    final teamsUsed = userData?.teamsUsed ?? <String>[];
-    final currentStreak = userData?.currentStreak ?? 0;
-    final totalWins = userData?.totalWins ?? 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.analytics, color: Colors.white, size: 24),
-              const SizedBox(width: 12),
-              const Text(
-                'STATISTICHE DETTAGLIATE',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // Prima riga
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Jolly rimasti',
-                  '$jollyLeft/3',
-                  Icons.favorite,
-                  Colors.red,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatCard(
-                  'Squadre usate',
-                  '${teamsUsed.length}/20',
-                  Icons.sports_soccer,
-                  Colors.blue,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Seconda riga
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  'Streak corrente',
-                  '$currentStreak',
-                  Icons.local_fire_department,
-                  Colors.orange,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatCard(
-                  'Vittorie totali',
-                  '$totalWins',
-                  Icons.emoji_events,
-                  Colors.amber,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Squadre utilizzate (se presenti)
-          if (teamsUsed.isNotEmpty) ...[
-            const Text(
-              'Squadre già utilizzate:',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: (teamsUsed as List<dynamic>).map<Widget>((team) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentOrange.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppTheme.accentOrange.withOpacity(0.5),
-                  ),
-                ),
-                child: Text(
-                  team.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              )).toList(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildProfileActions(BuildContext context) {
     return Column(
@@ -991,6 +829,9 @@ void _showLeagueManagementDialog(BuildContext context) {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+            foregroundColor: Colors.black,
+          ),
             child: const Text('Annulla'),
           ),
           TextButton(
@@ -998,6 +839,9 @@ void _showLeagueManagementDialog(BuildContext context) {
               Navigator.pop(context);
               await FirebaseAuth.instance.signOut();
             },
+            style: TextButton.styleFrom(
+            foregroundColor: Colors.black,
+          ),
             child: const Text('Esci'),
           ),
         ],

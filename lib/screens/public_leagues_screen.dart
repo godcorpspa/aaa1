@@ -1,17 +1,17 @@
-import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:last_man_standing/providers/league_providers.dart';
 import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
 import '../models/league_models.dart';
+import '../services/league_service.dart';
 
 class PublicLeaguesScreen extends ConsumerWidget {
   const PublicLeaguesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Usa il provider per ottenere le leghe pubbliche dal database
+    // Recupera le leghe pubbliche dal provider
     final publicLeaguesAsync = ref.watch(publicLeaguesProvider(null));
 
     return Scaffold(
@@ -24,25 +24,13 @@ class PublicLeaguesScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Leghe Pubbliche',
+          'Leghe pubbliche',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
+            letterSpacing: 0.6,
           ),
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              ref.invalidate(publicLeaguesProvider);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Aggiornamento completato')),
-              );
-            },
-          ),
-        ],
       ),
       extendBodyBehindAppBar: true,
       body: GradientBackground(
@@ -52,18 +40,28 @@ class PublicLeaguesScreen extends ConsumerWidget {
               child: CircularProgressIndicator(color: Colors.white),
             ),
             error: (error, stack) => _buildErrorWidget(context, ref, error),
-            data: (leagues) => _buildContent(context, ref, leagues.cast<UserLeague>()),
+            data: (leagues) => _buildContent(context, ref, leagues),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, List<UserLeague> leagues) {
+  /// Contenuto principale – lista leghe
+  Widget _buildContent(BuildContext context, WidgetRef ref, List<LastManStandingLeague> leagues) {
+    if (leagues.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nessuna lega pubblica disponibile al momento.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
     return Column(
       children: [
         const SizedBox(height: 20),
-        
+
         // Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -76,27 +74,23 @@ class PublicLeaguesScreen extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
         ),
-        
+
         const SizedBox(height: 20),
-        
+
         // Lista leghe
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              // Placeholder per refresh
+              // Chiede nuovamente i dati al provider
+              ref.invalidate(publicLeaguesProvider(null));
               await Future.delayed(const Duration(seconds: 1));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Lista aggiornata!')),
-              );
             },
             child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: leagues.length,
-              itemBuilder: (context, index) => _buildLeagueCard(
-                context, 
-                ref, 
-                leagues[index]
-              ),
+              itemBuilder: (context, index) =>
+                  _buildLeagueCard(context, ref, leagues[index]),
             ),
           ),
         ),
@@ -104,7 +98,10 @@ class PublicLeaguesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLeagueCard(BuildContext context, WidgetRef ref, UserLeague league) {
+  /// Card per singola lega
+  Widget _buildLeagueCard(BuildContext context, WidgetRef ref, LastManStandingLeague league) {
+    final bool isFull = league.currentParticipants >= league.maxParticipants;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -158,20 +155,20 @@ class PublicLeaguesScreen extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: league.isFull 
-                      ? Colors.red.withOpacity(0.2)
-                      : Colors.green.withOpacity(0.2),
+                    color: isFull
+                        ? Colors.red.withOpacity(0.2)
+                        : Colors.green.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: league.isFull 
-                        ? Colors.red.withOpacity(0.5)
-                        : Colors.green.withOpacity(0.5),
+                      color: isFull
+                          ? Colors.red.withOpacity(0.5)
+                          : Colors.green.withOpacity(0.5),
                     ),
                   ),
                   child: Text(
-                    league.isFull ? 'PIENA' : 'APERTA',
+                    isFull ? 'PIENA' : 'APERTA',
                     style: TextStyle(
-                      color: league.isFull ? Colors.red : Colors.green,
+                      color: isFull ? Colors.red : Colors.green,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -179,16 +176,17 @@ class PublicLeaguesScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Informazioni lega
             Row(
               children: [
                 _buildInfoItem(
                   icon: Icons.people,
                   label: 'Partecipanti',
-                  value: '${league.currentParticipants}/${league.maxParticipants}',
+                  value:
+                      '${league.currentParticipants}/${league.maxParticipants}',
                 ),
                 const SizedBox(width: 20),
                 _buildInfoItem(
@@ -198,9 +196,9 @@ class PublicLeaguesScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             Row(
               children: [
                 _buildInfoItem(
@@ -216,32 +214,28 @@ class PublicLeaguesScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 20),
-            
-            // Pulsante unisciti
+
+            // Pulsante entra
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: league.isFull ? null : () => _joinLeague(context, ref, league),
+                onPressed: isFull
+                    ? null
+                    : () {
+                        _joinLeague(context, ref, league);
+                      },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: league.isFull 
-                    ? Colors.grey 
-                    : AppTheme.accentOrange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor:
+                      isFull ? Colors.grey : AppTheme.accentOrange,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  elevation: league.isFull ? 0 : 4,
                 ),
-                child: Text(
-                  league.isFull ? 'LEGA PIENA' : 'UNISCITI ALLA LEGA',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
+                child: const Text(
+                  'Entra',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -251,144 +245,92 @@ class PublicLeaguesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoItem({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Expanded(
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            color: Colors.white70,
-            size: 16,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  /// Azione di join alla lega
+  Future<void> _joinLeague(BuildContext context, WidgetRef ref, LastManStandingLeague league) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
+    // Servizio
+    final leagueService = ref.read(leagueServiceProvider);
 
-  void _joinLeague(BuildContext context, WidgetRef ref, UserLeague league) async {
-    // Mostra dialog di conferma
-    final confirmed = await showDialog<bool>(
+    // Mostra loader
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Conferma'),
-        content: Text('Vuoi unirti alla lega "${league.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annulla'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentOrange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Unisciti'),
-          ),
-        ],
-      ),
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-
-    if (confirmed != true) return;
 
     try {
-      // Mostra loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Unendosi alla lega...'),
-            ],
+      await leagueService.joinLeague(leagueId: league.id);
+      navigator.pop(); // chiude il dialog
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Ti sei unito alla lega con successo!')),
+      );
+      // aggiorna i provider interessati
+      ref.invalidate(currentUserLeaguesProvider);
+      ref.invalidate(publicLeaguesProvider(null));
+      navigator.pop(); // torna alla schermata precedente
+    } on LeagueException catch (e) {
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Si è verificato un errore imprevisto.')),
+      );
+    }
+  }
+
+  /// Widget singolo info (etichetta + valore)
+  Widget _buildInfoItem({required IconData icon, required String label, required String value}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white70, size: 16),
+        const SizedBox(width: 4),
+        Text(
+          '$label: ',
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        Text(
+          value,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      ],
+    );
+  }
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  /// Widget di errore
+  Widget _buildErrorWidget(BuildContext context, WidgetRef ref, Object error) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+          const SizedBox(height: 12),
+          const Text(
+            'Errore nel caricamento delle leghe pubbliche.',
+            style: TextStyle(color: Colors.white70),
           ),
-        ),
-      );
-
-      // Simula chiamata API
-      await ref.read(leagueServiceProvider).joinLeague(
-        leagueId: league.id,
-        password: null, // o richiedi password se necessario
-      );
-
-      if (context.mounted) {
-      // Chiudi il loading dialog
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        ref.invalidate(userLeaguesProvider(user.uid));
-        ref.invalidate(currentUserLeaguesProvider);
-        ref.invalidate(userHasLeaguesProvider);
-      }
-      Navigator.pop(context);
-      
-      // Mostra successo
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ti sei unito alla lega "${league.name}" con successo!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      // Forza un refresh del provider delle leghe
-      ref.invalidate(userLeaguesProvider);
-      
-      // Attendi brevemente che lo stato si aggiorni
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Torna alla schermata principale
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-  } catch (e) {
-    if (context.mounted) {
-      // Chiudi il loading dialog
-      Navigator.pop(context);
-      
-      // Mostra errore
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Errore: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+          const SizedBox(height: 8),
+          Text(
+            error.toString(),
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              ref.invalidate(publicLeaguesProvider(null));
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Riprova'),
+          )
+        ],
+      ),
+    );
   }
-  }
-}
-
-_buildErrorWidget(BuildContext context, WidgetRef ref, Object error) {
-  print('Errore ciao');
 }
