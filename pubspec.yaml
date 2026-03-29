@@ -87,34 +87,20 @@ flutter:
     - assets/icons/
     - assets/logo.png
 
-  # Fonts - Rimuovi se non hai i file font
-  # fonts:
-  #   - family: SF Pro Display
-  #     fonts:
-  #       - asset: fonts/SFProDisplay-Regular.ttf
-  #         weight: 400
-  #       - asset: fonts/SFProDisplay-Medium.ttf
-  #         weight: 500
-  #       - asset: fonts/SFProDisplay-Semibold.ttf
-  #         weight: 600
-  #       - asset: fonts/SFProDisplay-Bold.ttf
-  #         weight: 700
-  #       - asset: fonts/SFProDisplay-Heavy.ttf
-  #         weight: 800
 
 # Native splash screen configuration
 flutter_native_splash:
-  color: "#B71C1C"
+  color: "#1A1A2E"
   image: assets/logo.png
   android: true
   ios: true
   web: false
-  
+
   # Android 12+ specific settings
   android_12:
-    color: "#B71C1C"
+    color: "#1A1A2E"
     image: assets/logo.png
-    icon_background_color: "#B71C1C"
+    icon_background_color: "#1A1A2E"
     
   # iOS specific settings
   ios_content_mode: center

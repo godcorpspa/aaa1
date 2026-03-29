@@ -1,4 +1,3 @@
-// lib/services/league_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/league_models.dart';
@@ -6,16 +5,13 @@ import '../models/league_models.dart';
 class LeagueService {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
-  
+
   LeagueService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance;
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  // === CREAZIONE LEGA ===
-  
-  /// Crea una nuova lega Last Man Standing
   Future<LastManStandingLeague> createLeague({
     required String name,
     required String description,
@@ -26,11 +22,11 @@ class LeagueService {
     LeagueSettings? settings,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
     final leagueId = _db.collection('leagues').doc().id;
-    final inviteCode = _generateInviteCode();
-    
+    final inviteCode = LastManStandingLeague.generateInviteCode();
+
     final league = LastManStandingLeague(
       id: leagueId,
       name: name.trim(),
@@ -40,7 +36,7 @@ class LeagueService {
       createdAt: DateTime.now(),
       isPrivate: isPrivate,
       requirePassword: requirePassword,
-      password: requirePassword ? password : null,
+      passwordHash: requirePassword ? password : null,
       maxParticipants: maxParticipants,
       currentParticipants: 1,
       participants: [user.uid],
@@ -50,213 +46,158 @@ class LeagueService {
       inviteCode: inviteCode,
     );
 
-    try {
-      await _db.runTransaction((transaction) async {
-        // Crea la lega
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        transaction.set(leagueRef, league.toJson());
-        
-        // Aggiungi il creatore come partecipante
-        final participantRef = leagueRef.collection('participants').doc(user.uid);
-        final participant = LeagueParticipant(
-          userId: user.uid,
-          displayName: user.displayName ?? 'Utente',
-          email: user.email,
-          joinedAt: DateTime.now(),
-          isAdmin: true,
-        );
-        transaction.set(participantRef, participant.toJson());
-        
-        // Aggiorna il profilo utente
-        final userRef = _db.collection('users').doc(user.uid);
-        transaction.set(userRef, {
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      tx.set(leagueRef, league.toJson());
+
+      final participantRef =
+          leagueRef.collection('participants').doc(user.uid);
+      final participant = LeagueParticipant(
+        userId: user.uid,
+        displayName: user.displayName ?? 'Utente',
+        email: user.email,
+        joinedAt: DateTime.now(),
+        isAdmin: true,
+      );
+      tx.set(participantRef, participant.toJson());
+
+      final userRef = _db.collection('users').doc(user.uid);
+      tx.set(
+        userRef,
+        {
           'currentLeagues': FieldValue.arrayUnion([leagueId]),
           'createdLeagues': FieldValue.arrayUnion([leagueId]),
-        }, SetOptions(merge: true));
-      });
+        },
+        SetOptions(merge: true),
+      );
+    });
 
-      return league;
-    } catch (e) {
-      throw LeagueException('Errore nella creazione della lega: $e');
-    }
+    return league;
   }
 
-  // === RICERCA E JOIN LEGHE ===
-  
-  /// Cerca leghe pubbliche
   Future<List<LastManStandingLeague>> searchPublicLeagues({
     String? query,
     int limit = 20,
   }) async {
-    try {
-      Query leaguesQuery = _db
-          .collection('leagues')
-          .where('isPrivate', isEqualTo: false)
-          .orderBy('createdAt', descending: true)
-          .limit(limit);
+    final snapshot = await _db
+        .collection('leagues')
+        .where('isPrivate', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .get();
 
-      final snapshot = await leaguesQuery.get();
-      
-      print('🔍 Leghe pubbliche trovate: ${snapshot.docs.length}');
-      
-      final leagues = snapshot.docs
-          .map((doc) {
-            try {
-              final data = doc.data() as Map<String, dynamic>;
-              print('📄 Lega: ${data['name']} - Private: ${data['isPrivate']} - Status: ${data['status']}');
-              
-              return LastManStandingLeague.fromJson({
-                'id': doc.id,
-                ...data
-              });
-            } catch (e) {
-              print('❌ Errore parsing lega ${doc.id}: $e');
-              return null;
-            }
-          })
-          .where((league) => league != null)
-          .cast<LastManStandingLeague>()
-          .where((league) => 
-            // Filtra solo leghe pubbliche in stato waiting
-            !league.isPrivate && 
-            league.status == LeagueStatus.waiting
-          )
+    var leagues = snapshot.docs
+        .map((doc) {
+          try {
+            return LastManStandingLeague.fromJson({
+              'id': doc.id,
+              ...doc.data(),
+            });
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<LastManStandingLeague>()
+        .where((l) => !l.isPrivate && l.status == LeagueStatus.waiting)
+        .toList();
+
+    if (query != null && query.trim().isNotEmpty) {
+      final q = query.toLowerCase();
+      leagues = leagues
+          .where((l) =>
+              l.name.toLowerCase().contains(q) ||
+              l.description.toLowerCase().contains(q))
           .toList();
-
-      // Se c'è una query, filtra per nome
-      if (query != null && query.trim().isNotEmpty) {
-        final searchQuery = query.toLowerCase();
-        return leagues.where((league) => 
-          league.name.toLowerCase().contains(searchQuery) ||
-          league.description.toLowerCase().contains(searchQuery)
-        ).toList();
-      }
-
-      return leagues;
-    } catch (e) {
-      print('❌ Errore searchPublicLeagues: $e');
-      throw LeagueException('Errore nella ricerca delle leghe: $e');
     }
+
+    return leagues;
   }
 
-  /// Trova lega per codice invito
-  Future<LastManStandingLeague?> findLeagueByInviteCode(String inviteCode) async {
-    try {
-      final snapshot = await _db
-          .collection('leagues')
-          .where('inviteCode', isEqualTo: inviteCode.toUpperCase())
-          .limit(1)
-          .get();
+  Future<LastManStandingLeague?> findLeagueByInviteCode(
+      String inviteCode) async {
+    final snapshot = await _db
+        .collection('leagues')
+        .where('inviteCode', isEqualTo: inviteCode.toUpperCase())
+        .limit(1)
+        .get();
 
-      if (snapshot.docs.isEmpty) return null;
-
-      final doc = snapshot.docs.first;
-      return LastManStandingLeague.fromJson({
-        'id': doc.id,
-        ...doc.data()
-      });
-    } catch (e) {
-      throw LeagueException('Errore nella ricerca della lega: $e');
-    }
+    if (snapshot.docs.isEmpty) return null;
+    final doc = snapshot.docs.first;
+    return LastManStandingLeague.fromJson({'id': doc.id, ...doc.data()});
   }
 
-  /// Unisciti a una lega
   Future<void> joinLeague({
     required String leagueId,
     String? password,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        final leagueDoc = await transaction.get(leagueRef);
-        
-        if (!leagueDoc.exists) {
-          throw LeagueException('Lega non trovata');
-        }
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      final leagueDoc = await tx.get(leagueRef);
 
-        final league = LastManStandingLeague.fromJson({
-          'id': leagueDoc.id,
-          ...leagueDoc.data()!
-        });
+      if (!leagueDoc.exists) throw const LeagueNotFoundException();
 
-        // Validazioni
-        if (league.participants.contains(user.uid)) {
-          throw LeagueException('Sei già membro di questa lega');
-        }
-
-        if (!league.canJoin) {
-          throw LeagueException('Impossibile unirsi a questa lega');
-        }
-
-        if (league.requirePassword && league.password != password) {
-          throw LeagueException('Password non corretta');
-        }
-
-        // Aggiungi partecipante
-        final participantRef = leagueRef.collection('participants').doc(user.uid);
-        final participant = LeagueParticipant(
-          userId: user.uid,
-          displayName: user.displayName ?? 'Utente',
-          email: user.email,
-          joinedAt: DateTime.now(),
-        );
-        transaction.set(participantRef, participant.toJson());
-
-        // Aggiorna la lega
-        transaction.update(leagueRef, {
-          'participants': FieldValue.arrayUnion([user.uid]),
-          'currentParticipants': FieldValue.increment(1),
-        });
-
-        // Aggiorna il profilo utente
-        final userRef = _db.collection('users').doc(user.uid);
-        transaction.update(userRef, {
-          'currentLeagues': FieldValue.arrayUnion([leagueId]),
-        });
+      final league = LastManStandingLeague.fromJson({
+        'id': leagueDoc.id,
+        ...leagueDoc.data()!,
       });
-    } catch (e) {
-      if (e is LeagueException) rethrow;
-      throw LeagueException('Errore nell\'unirsi alla lega: $e');
-    }
+
+      if (league.participants.contains(user.uid)) {
+        throw const AlreadyMemberException();
+      }
+      if (!league.canJoin) {
+        throw const LeagueException('Impossibile unirsi a questa lega');
+      }
+      if (league.requirePassword && league.passwordHash != password) {
+        throw const InvalidPasswordException();
+      }
+
+      final participantRef =
+          leagueRef.collection('participants').doc(user.uid);
+      final participant = LeagueParticipant(
+        userId: user.uid,
+        displayName: user.displayName ?? 'Utente',
+        email: user.email,
+        joinedAt: DateTime.now(),
+      );
+      tx.set(participantRef, participant.toJson());
+
+      tx.update(leagueRef, {
+        'participants': FieldValue.arrayUnion([user.uid]),
+        'currentParticipants': FieldValue.increment(1),
+      });
+
+      final userRef = _db.collection('users').doc(user.uid);
+      tx.set(
+        userRef,
+        {'currentLeagues': FieldValue.arrayUnion([leagueId])},
+        SetOptions(merge: true),
+      );
+    });
   }
 
-  // === GESTIONE LEGHE UTENTE ===
-  
-  // MODIFICA i metodi esistenti così:
+  Stream<List<LastManStandingLeague>> getUserLeagues([String? userId]) {
+    final targetUserId = userId ?? _auth.currentUser?.uid;
+    if (targetUserId == null) return Stream.value([]);
 
-/// Ottieni le leghe dell'utente corrente o di un utente specifico
-Stream<List<LastManStandingLeague>> getUserLeagues([String? userId]) {
-  // Se non viene passato un userId, usa l'utente corrente
-  final targetUserId = userId ?? _auth.currentUser?.uid;
-  
-  if (targetUserId == null) return Stream.value([]);
-
-  return _db
-      .collection('leagues')
-      .where('participants', arrayContains: targetUserId)
-      .snapshots()
-      .map((snapshot) {
-        print('🔍 Leghe trovate per utente $targetUserId: ${snapshot.docs.length}');
-        return snapshot.docs
+    return _db
+        .collection('leagues')
+        .where('participants', arrayContains: targetUserId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
             .map((doc) => LastManStandingLeague.fromJson({
                   'id': doc.id,
-                  ...doc.data()
+                  ...doc.data(),
                 }))
-            .toList();
-      });
-}
+            .toList());
+  }
 
-/// Verifica se l'utente corrente o un utente specifico ha leghe attive
-Future<bool> userHasActiveLeagues([String? userId]) async {
-  // Se non viene passato un userId, usa l'utente corrente
-  final targetUserId = userId ?? _auth.currentUser?.uid;
-  
-  if (targetUserId == null) return false;
+  Future<bool> userHasActiveLeagues([String? userId]) async {
+    final targetUserId = userId ?? _auth.currentUser?.uid;
+    if (targetUserId == null) return false;
 
-  try {
     final snapshot = await _db
         .collection('leagues')
         .where('participants', arrayContains: targetUserId)
@@ -267,30 +208,15 @@ Future<bool> userHasActiveLeagues([String? userId]) async {
         .limit(1)
         .get();
 
-    print('🔍 Utente $targetUserId ha leghe attive: ${snapshot.docs.isNotEmpty}');
     return snapshot.docs.isNotEmpty;
-  } catch (e) {
-    print('❌ Errore verifica leghe per $targetUserId: $e');
-    return false;
   }
-}
 
-  /// Ottieni dettagli di una lega specifica
   Future<LastManStandingLeague?> getLeague(String leagueId) async {
-    try {
-      final doc = await _db.collection('leagues').doc(leagueId).get();
-      if (!doc.exists) return null;
-
-      return LastManStandingLeague.fromJson({
-        'id': doc.id,
-        ...doc.data()!
-      });
-    } catch (e) {
-      throw LeagueException('Errore nel recupero della lega: $e');
-    }
+    final doc = await _db.collection('leagues').doc(leagueId).get();
+    if (!doc.exists) return null;
+    return LastManStandingLeague.fromJson({'id': doc.id, ...doc.data()!});
   }
 
-  /// Ottieni partecipanti di una lega
   Stream<List<LeagueParticipant>> getLeagueParticipants(String leagueId) {
     return _db
         .collection('leagues')
@@ -303,274 +229,183 @@ Future<bool> userHasActiveLeagues([String? userId]) async {
             .toList());
   }
 
-  // === GESTIONE PARTECIPANTI ===
-
-  /// Lascia una lega
   Future<void> leaveLeague(String leagueId) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        final leagueDoc = await transaction.get(leagueRef);
-        
-        if (!leagueDoc.exists) {
-          throw LeagueException('Lega non trovata');
-        }
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      final leagueDoc = await tx.get(leagueRef);
 
-        final league = LastManStandingLeague.fromJson({
-          'id': leagueDoc.id,
-          ...leagueDoc.data()!
-        });
+      if (!leagueDoc.exists) throw const LeagueNotFoundException();
 
-        // Non permettere al creatore di lasciare la lega
-        if (league.creatorId == user.uid) {
-          throw LeagueException('Il creatore non può lasciare la lega. Cancellala invece.');
-        }
-
-        // Rimuovi partecipante
-        final participantRef = leagueRef.collection('participants').doc(user.uid);
-        transaction.delete(participantRef);
-
-        // Aggiorna la lega
-        transaction.update(leagueRef, {
-          'participants': FieldValue.arrayRemove([user.uid]),
-          'currentParticipants': FieldValue.increment(-1),
-        });
-
-        // Aggiorna il profilo utente
-        final userRef = _db.collection('users').doc(user.uid);
-        transaction.update(userRef, {
-          'currentLeagues': FieldValue.arrayRemove([leagueId]),
-        });
+      final league = LastManStandingLeague.fromJson({
+        'id': leagueDoc.id,
+        ...leagueDoc.data()!,
       });
-    } catch (e) {
-      if (e is LeagueException) rethrow;
-      throw LeagueException('Errore nell\'uscire dalla lega: $e');
-    }
+
+      if (league.creatorId == user.uid) {
+        throw const LeagueException(
+            'Il creatore non può lasciare la lega. Cancellala invece.');
+      }
+
+      tx.delete(leagueRef.collection('participants').doc(user.uid));
+      tx.update(leagueRef, {
+        'participants': FieldValue.arrayRemove([user.uid]),
+        'currentParticipants': FieldValue.increment(-1),
+      });
+      tx.update(_db.collection('users').doc(user.uid), {
+        'currentLeagues': FieldValue.arrayRemove([leagueId]),
+      });
+    });
   }
 
-  /// Rimuovi un partecipante (solo admin)
-  Future<void> removeParticipant(String leagueId, String participantId) async {
+  Future<void> removeParticipant(
+      String leagueId, String participantId) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        final leagueDoc = await transaction.get(leagueRef);
-        
-        if (!leagueDoc.exists) {
-          throw LeagueException('Lega non trovata');
-        }
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      final leagueDoc = await tx.get(leagueRef);
 
-        final league = LastManStandingLeague.fromJson({
-          'id': leagueDoc.id,
-          ...leagueDoc.data()!
-        });
+      if (!leagueDoc.exists) throw const LeagueNotFoundException();
 
-        // Verifica permessi admin
-        if (!league.isAdmin(user.uid)) {
-          throw LeagueException('Non hai i permessi per rimuovere partecipanti');
-        }
-
-        // Non permettere di rimuovere il creatore
-        if (league.creatorId == participantId) {
-          throw LeagueException('Non puoi rimuovere il creatore della lega');
-        }
-
-        // Rimuovi partecipante
-        final participantRef = leagueRef.collection('participants').doc(participantId);
-        transaction.delete(participantRef);
-
-        // Aggiorna la lega
-        transaction.update(leagueRef, {
-          'participants': FieldValue.arrayRemove([participantId]),
-          'admins': FieldValue.arrayRemove([participantId]),
-          'currentParticipants': FieldValue.increment(-1),
-        });
-
-        // Aggiorna il profilo dell'utente rimosso
-        final removedUserRef = _db.collection('users').doc(participantId);
-        transaction.update(removedUserRef, {
-          'currentLeagues': FieldValue.arrayRemove([leagueId]),
-        });
+      final league = LastManStandingLeague.fromJson({
+        'id': leagueDoc.id,
+        ...leagueDoc.data()!,
       });
-    } catch (e) {
-      if (e is LeagueException) rethrow;
-      throw LeagueException('Errore nella rimozione del partecipante: $e');
-    }
+
+      if (!league.isAdmin(user.uid)) {
+        throw const PermissionDeniedException();
+      }
+      if (league.creatorId == participantId) {
+        throw const LeagueException(
+            'Non puoi rimuovere il creatore della lega');
+      }
+
+      tx.delete(leagueRef.collection('participants').doc(participantId));
+      tx.update(leagueRef, {
+        'participants': FieldValue.arrayRemove([participantId]),
+        'admins': FieldValue.arrayRemove([participantId]),
+        'currentParticipants': FieldValue.increment(-1),
+      });
+      tx.update(_db.collection('users').doc(participantId), {
+        'currentLeagues': FieldValue.arrayRemove([leagueId]),
+      });
+    });
   }
 
-  // === GESTIONE LEGA ===
-
-  /// Avvia una lega (solo creator/admin)
   Future<void> startLeague(String leagueId) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        final leagueDoc = await transaction.get(leagueRef);
-        
-        if (!leagueDoc.exists) {
-          throw LeagueException('Lega non trovata');
-        }
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      final leagueDoc = await tx.get(leagueRef);
 
-        final league = LastManStandingLeague.fromJson({
-          'id': leagueDoc.id,
-          ...leagueDoc.data()!
-        });
+      if (!leagueDoc.exists) throw const LeagueNotFoundException();
 
-        // Verifica permessi
-        if (!league.isAdmin(user.uid)) {
-          throw LeagueException('Non hai i permessi per avviare la lega');
-        }
-
-        // Verifica stato
-        if (league.status != LeagueStatus.waiting) {
-          throw LeagueException('La lega non è in stato di attesa');
-        }
-
-        // Verifica numero minimo partecipanti
-        if (league.currentParticipants < 2) {
-          throw LeagueException('Servono almeno 2 partecipanti per iniziare');
-        }
-
-        // Avvia la lega
-        transaction.update(leagueRef, {
-          'status': LeagueStatus.active.name,
-          'startDate': FieldValue.serverTimestamp(),
-          'stats.activePlayers': league.currentParticipants,
-        });
+      final league = LastManStandingLeague.fromJson({
+        'id': leagueDoc.id,
+        ...leagueDoc.data()!,
       });
-    } catch (e) {
-      if (e is LeagueException) rethrow;
-      throw LeagueException('Errore nell\'avvio della lega: $e');
-    }
+
+      if (!league.isAdmin(user.uid)) {
+        throw const PermissionDeniedException();
+      }
+      if (league.status != LeagueStatus.waiting) {
+        throw const LeagueAlreadyStartedException();
+      }
+      if (league.currentParticipants < 2) {
+        throw const LeagueException(
+            'Servono almeno 2 partecipanti per iniziare');
+      }
+
+      tx.update(leagueRef, {
+        'status': LeagueStatus.active.name,
+        'startDate': FieldValue.serverTimestamp(),
+        'stats.activePlayers': league.currentParticipants,
+      });
+    });
   }
 
-  /// Cancella una lega (solo creator)
   Future<void> deleteLeague(String leagueId) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        final leagueDoc = await transaction.get(leagueRef);
-        
-        if (!leagueDoc.exists) {
-          throw LeagueException('Lega non trovata');
-        }
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      final leagueDoc = await tx.get(leagueRef);
 
-        final league = LastManStandingLeague.fromJson({
-          'id': leagueDoc.id,
-          ...leagueDoc.data()!
-        });
+      if (!leagueDoc.exists) throw const LeagueNotFoundException();
 
-        // Solo il creatore può cancellare
-        if (league.creatorId != user.uid) {
-          throw LeagueException('Solo il creatore può cancellare la lega');
-        }
-
-        // Non cancellare se la lega è attiva e ha partite in corso
-        if (league.status == LeagueStatus.active && league.stats.currentRound > 0) {
-          throw LeagueException('Impossibile cancellare una lega con partite in corso');
-        }
-
-        // Segna come cancellata invece di eliminare
-        transaction.update(leagueRef, {
-          'status': LeagueStatus.cancelled.name,
-          'endDate': FieldValue.serverTimestamp(),
-        });
-
-        // Rimuovi la lega dai profili di tutti i partecipanti
-        for (final participantId in league.participants) {
-          final userRef = _db.collection('users').doc(participantId);
-          transaction.update(userRef, {
-            'currentLeagues': FieldValue.arrayRemove([leagueId]),
-          });
-        }
+      final league = LastManStandingLeague.fromJson({
+        'id': leagueDoc.id,
+        ...leagueDoc.data()!,
       });
-    } catch (e) {
-      if (e is LeagueException) rethrow;
-      throw LeagueException('Errore nella cancellazione della lega: $e');
-    }
+
+      if (league.creatorId != user.uid) {
+        throw const LeagueException(
+            'Solo il creatore può cancellare la lega');
+      }
+
+      tx.update(leagueRef, {
+        'status': LeagueStatus.cancelled.name,
+        'endDate': FieldValue.serverTimestamp(),
+      });
+
+      for (final pid in league.participants) {
+        tx.update(_db.collection('users').doc(pid), {
+          'currentLeagues': FieldValue.arrayRemove([leagueId]),
+        });
+      }
+    });
   }
 
-  /// Aggiorna impostazioni lega (solo admin)
   Future<void> updateLeagueSettings({
     required String leagueId,
     required LeagueSettings newSettings,
   }) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('Utente non autenticato');
+    if (user == null) throw const LeagueException('Utente non autenticato');
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final leagueRef = _db.collection('leagues').doc(leagueId);
-        final leagueDoc = await transaction.get(leagueRef);
-        
-        if (!leagueDoc.exists) {
-          throw LeagueException('Lega non trovata');
-        }
+    await _db.runTransaction((tx) async {
+      final leagueRef = _db.collection('leagues').doc(leagueId);
+      final leagueDoc = await tx.get(leagueRef);
 
-        final league = LastManStandingLeague.fromJson({
-          'id': leagueDoc.id,
-          ...leagueDoc.data()!
-        });
+      if (!leagueDoc.exists) throw const LeagueNotFoundException();
 
-        // Verifica permessi
-        if (!league.isAdmin(user.uid)) {
-          throw LeagueException('Non hai i permessi per modificare le impostazioni');
-        }
-
-        // Non modificare se la lega è già iniziata (tranne alcune impostazioni)
-        if (league.hasStarted) {
-          throw LeagueException('Impossibile modificare le impostazioni di una lega già iniziata');
-        }
-
-        transaction.update(leagueRef, {
-          'settings': newSettings.toJson(),
-        });
+      final league = LastManStandingLeague.fromJson({
+        'id': leagueDoc.id,
+        ...leagueDoc.data()!,
       });
-    } catch (e) {
-      if (e is LeagueException) rethrow;
-      throw LeagueException('Errore nell\'aggiornamento delle impostazioni: $e');
-    }
+
+      if (!league.isAdmin(user.uid)) {
+        throw const PermissionDeniedException();
+      }
+      if (league.hasStarted) {
+        throw const LeagueException(
+            'Impossibile modificare le impostazioni di una lega già iniziata');
+      }
+
+      tx.update(leagueRef, {'settings': newSettings.toJson()});
+    });
   }
 
-  // === UTILITÀ PRIVATE ===
-
-  /// Genera un codice invito univoco
-  String _generateInviteCode() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final random = timestamp.hashCode.abs();
-    return 'LMS${random.toString().substring(0, 6).toUpperCase()}';
-  }
-
-  /// Pulisci risorse
-  void dispose() {
-    // Cleanup se necessario
-  }
+  void dispose() {}
 }
 
-// === ECCEZIONI PERSONALIZZATE ===
+// === EXCEPTIONS ===
 
 class LeagueException implements Exception {
   final String message;
   final String? code;
-  
   const LeagueException(this.message, [this.code]);
-  
   @override
-  String toString() => 'LeagueException: $message${code != null ? ' (Code: $code)' : ''}';
+  String toString() => message;
 }
 
-// Eccezioni specifiche
 class LeagueNotFoundException extends LeagueException {
   const LeagueNotFoundException() : super('Lega non trovata');
 }

@@ -1,88 +1,107 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
-import '../widgets/lms_logo.dart';
-import '../screens/login_screen.dart';
-import '../screens/register_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// ---------------------------------------------------------------------------
-///  WelcomeScreen – schermata iniziale con logo, testo di benvenuto e due
-///  pulsanti che rimandano alle schermate di Login e Registrazione.
-/// ---------------------------------------------------------------------------
-class WelcomeScreen extends StatelessWidget {
+import '../theme/app_theme.dart';
+import '../widgets/gradient_background.dart';
+import '../widgets/lms_logo.dart';
+import 'login_screen.dart';
+import 'register_screen.dart';
+
+/// WelcomeScreen -- landing page with logo, title, tagline and auth buttons.
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.gradient),
-        width: double.infinity,
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const LmsLogo(),
-                  const SizedBox(height: 60),
+      body: GradientBackground(
+        useSafeArea: true,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 36),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 48),
 
-                  // ─── Benvenuto ───
-                  Text(
-                    'Benvenuto',
-                    style: theme.textTheme.displayLarge!
-                        .copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                // --- Logo ---
+                const LmsLogo(size: 140),
+
+                const SizedBox(height: 40),
+
+                // --- App title ---
+                Text(
+                  'LAST MAN STANDING',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                     'Indovina la vincente, sopravvivi. \nSbaglia... e sei fuori!',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge!.copyWith(color: Colors.white),
+                ),
+
+                const SizedBox(height: 8),
+
+                // --- Subtitle ---
+                Text(
+                  'Serie A Edition',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppTheme.accentGold,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
                   ),
+                ),
 
-                  const SizedBox(height: 80),
+                const SizedBox(height: 24),
 
-                  // ─── Pulsante REGISTRATI ───
-                  SizedBox(
-                    width: 260,
-                    height: 56,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE64A19),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                // --- Tagline ---
+                Text(
+                  'Scegli la vincente, sopravvivi.\nSbaglia... e sei fuori!',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 64),
+
+                // --- Register button ---
+                SizedBox(
+                  width: double.infinity,
+                  height: AppSizes.buttonHeight,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RegisterScreen(),
                       ),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                      ),
-                      child: const Text('Registrati', style: TextStyle(fontSize: 18)),
                     ),
+                    child: const Text('Registrati'),
                   ),
+                ),
 
-                  const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-                  // ─── Pulsante ACCEDI ───
-                  SizedBox(
-                    width: 260,
-                    height: 56,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white, width: 2),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                // --- Login button ---
+                SizedBox(
+                  width: double.infinity,
+                  height: AppSizes.buttonHeight,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoginScreen(),
                       ),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      ),
-                      child: const Text('Accedi', style: TextStyle(fontSize: 18)),
                     ),
+                    child: const Text('Accedi'),
                   ),
-                ],
-              ),
+                ),
+
+                const SizedBox(height: 48),
+              ],
             ),
           ),
         ),

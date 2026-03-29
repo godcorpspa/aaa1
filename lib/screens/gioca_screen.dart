@@ -24,47 +24,47 @@ class GiocaScreen extends ConsumerWidget {
           ),
         ),
         centerTitle: true,
-        automaticallyImplyLeading: false, // Rimuove il back button
+        automaticallyImplyLeading: false,
       ),
       extendBodyBehindAppBar: true,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             children: [
-              const SizedBox(height: 20),
-              
+              const SizedBox(height: AppSpacing.xl),
+
               // Header
               Text(
                 'LAST MAN STANDING',
                 style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                  color: Colors.white70,
+                  color: Colors.white.withValues(alpha: 0.7),
                   letterSpacing: 2,
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
               ),
-              
-              const SizedBox(height: 40),
-              
-              // Card Scegli Squadra
+
+              const SizedBox(height: AppSpacing.xxl),
+
+              // Card: Scegli Squadra
               _buildGameCard(
                 context,
                 title: 'Scegli Squadra',
                 subtitle: 'Fai la tua scelta per questa giornata',
                 icon: Icons.sports_soccer,
-                gradient: AppTheme.gradient,
+                gradient: AppTheme.dangerGradient,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ScegliScreen(),
+                    builder: (_) => const ScegliSquadraScreen(),
                   ),
                 ),
               ),
-              
-              const SizedBox(height: 20),
-              
-              // Card Storico Scelte
+
+              const SizedBox(height: AppSpacing.md),
+
+              // Card: Storico Scelte
               _buildGameCard(
                 context,
                 title: 'Storico Scelte',
@@ -74,53 +74,47 @@ class GiocaScreen extends ConsumerWidget {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const StoricoScelteScreen(),
+                    builder: (_) => const StoricoScelteScreen(),
                   ),
                 ),
               ),
-              
-              const SizedBox(height: 20),
-              
-              // Card Classifica Giocatori
+
+              const SizedBox(height: AppSpacing.md),
+
+              // Card: Classifica Giocatori
               _buildGameCard(
                 context,
                 title: 'Classifica Giocatori',
                 subtitle: 'Vedi come stai andando rispetto agli altri',
                 icon: Icons.leaderboard,
-                gradient: AppTheme.warningGradient,
+                gradient: AppTheme.goldGradient,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ClassificaGiocatoriScreen(),
+                    builder: (_) => const ClassificaGiocatoriScreen(),
                   ),
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Footer info
               Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
-                  ),
-                ),
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: AppTheme.glassCard,
                 child: Row(
                   children: [
                     Icon(
                       Icons.info_outline,
-                      color: Colors.white.withOpacity(0.8),
-                      size: 20,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      size: AppSizes.iconSm,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Text(
                         'Ricorda: puoi scegliere solo squadre non ancora utilizzate!',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                           fontSize: 14,
                         ),
                       ),
@@ -145,16 +139,16 @@ class GiocaScreen extends ConsumerWidget {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(AppRadius.xl),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -163,18 +157,14 @@ class GiocaScreen extends ConsumerWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 32,
-              ),
+              child: Icon(icon, color: Colors.white, size: AppSizes.iconLg),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: AppSpacing.lg),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,11 +177,11 @@ class GiocaScreen extends ConsumerWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 14,
                     ),
                   ),
@@ -200,8 +190,8 @@ class GiocaScreen extends ConsumerWidget {
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.8),
-              size: 20,
+              color: Colors.white.withValues(alpha: 0.8),
+              size: AppSizes.iconSm,
             ),
           ],
         ),

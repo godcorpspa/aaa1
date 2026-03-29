@@ -1,32 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/lms_logo.dart';
 import '../widgets/social_button.dart';
+import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+/// LoginScreen -- email/password sign-in with social login options.
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
-  
+
   bool _obscurePassword = true;
   bool _loading = false;
   String? _errorMessage;
-  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -36,6 +39,10 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordFocus.dispose();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // Auth methods
+  // ---------------------------------------------------------------------------
 
   Future<void> _signInWithEmail() async {
     if (!_formKey.currentState!.validate()) return;
@@ -52,17 +59,12 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
-      
-      // Feedback tattile per successo
       HapticFeedback.lightImpact();
-      
-      // Torna alla root
       Navigator.of(context).popUntil((route) => route.isFirst);
-      
     } on FirebaseAuthException catch (e) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorMessage = _getLocalizedErrorMessage(e.code));
-    } catch (e) {
+      setState(() => _errorMessage = _localizedError(e.code));
+    } catch (_) {
       HapticFeedback.heavyImpact();
       setState(() => _errorMessage = 'Errore di connessione. Riprova.');
     } finally {
@@ -77,13 +79,13 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
         setState(() => _loading = false);
-        return; // L'utente ha annullato
+        return;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -92,14 +94,12 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (!mounted) return;
-      
       HapticFeedback.lightImpact();
       Navigator.of(context).popUntil((route) => route.isFirst);
-      
     } on FirebaseAuthException catch (e) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorMessage = _getLocalizedErrorMessage(e.code));
-    } catch (e) {
+      setState(() => _errorMessage = _localizedError(e.code));
+    } catch (_) {
       HapticFeedback.heavyImpact();
       setState(() => _errorMessage = 'Errore nell\'accesso con Google');
     } finally {
@@ -114,28 +114,25 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final LoginResult result = await FacebookAuth.instance.login();
-      
+      final result = await FacebookAuth.instance.login();
       if (result.status != LoginStatus.success) {
         setState(() => _loading = false);
         return;
       }
 
-      final OAuthCredential credential = FacebookAuthProvider.credential(
+      final credential = FacebookAuthProvider.credential(
         result.accessToken!.tokenString,
       );
 
       await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (!mounted) return;
-      
       HapticFeedback.lightImpact();
       Navigator.of(context).popUntil((route) => route.isFirst);
-      
     } on FirebaseAuthException catch (e) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorMessage = _getLocalizedErrorMessage(e.code));
-    } catch (e) {
+      setState(() => _errorMessage = _localizedError(e.code));
+    } catch (_) {
       HapticFeedback.heavyImpact();
       setState(() => _errorMessage = 'Errore nell\'accesso con Facebook');
     } finally {
@@ -157,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       );
 
-      final oauthCredential = OAuthProvider("apple.com").credential(
+      final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
         accessToken: appleCredential.authorizationCode,
       );
@@ -165,14 +162,12 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseAuth.instance.signInWithCredential(oauthCredential);
 
       if (!mounted) return;
-      
       HapticFeedback.lightImpact();
       Navigator.of(context).popUntil((route) => route.isFirst);
-      
     } on FirebaseAuthException catch (e) {
       HapticFeedback.heavyImpact();
-      setState(() => _errorMessage = _getLocalizedErrorMessage(e.code));
-    } catch (e) {
+      setState(() => _errorMessage = _localizedError(e.code));
+    } catch (_) {
       HapticFeedback.heavyImpact();
       setState(() => _errorMessage = 'Errore nell\'accesso con Apple');
     } finally {
@@ -183,28 +178,34 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      setState(() => _errorMessage = 'Inserisci la tua email per il reset della password');
+      setState(
+        () => _errorMessage = 'Inserisci la tua email per il reset della password',
+      );
       return;
     }
 
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      
       if (!mounted) return;
-      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email di reset inviata. Controlla la tua casella di posta.'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: const Text(
+            'Email di reset inviata. Controlla la tua casella di posta.',
+          ),
+          backgroundColor: AppTheme.successGreen,
         ),
       );
     } on FirebaseAuthException catch (e) {
-      setState(() => _errorMessage = _getLocalizedErrorMessage(e.code));
+      setState(() => _errorMessage = _localizedError(e.code));
     }
   }
 
-  String _getLocalizedErrorMessage(String errorCode) {
-    switch (errorCode) {
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  String _localizedError(String code) {
+    switch (code) {
       case 'user-not-found':
         return 'Nessun utente trovato con questa email';
       case 'wrong-password':
@@ -214,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'user-disabled':
         return 'Account disabilitato';
       case 'too-many-requests':
-        return 'Troppi tentativi. Riprova più tardi';
+        return 'Troppi tentativi. Riprova piu tardi';
       case 'invalid-credential':
         return 'Credenziali non valide';
       case 'network-request-failed':
@@ -225,44 +226,52 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Email richiesta';
-    }
-    
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value)) {
-      return 'Email non valida';
-    }
-    
+    if (value == null || value.isEmpty) return 'Email richiesta';
+    final regex = RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,4}$');
+    if (!regex.hasMatch(value)) return 'Email non valida';
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password richiesta';
-    }
-    
-    if (value.length < 6) {
-      return 'Password deve essere almeno 6 caratteri';
-    }
-    
+    if (value == null || value.isEmpty) return 'Password richiesta';
+    if (value.length < 6) return 'La password deve avere almeno 6 caratteri';
     return null;
   }
 
+  // ---------------------------------------------------------------------------
+  // Reusable input decoration
+  // ---------------------------------------------------------------------------
+
+  InputDecoration _inputDecoration({
+    required String label,
+    required IconData prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(prefixIcon),
+      suffixIcon: suffixIcon,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      extendBodyBehindAppBar: true,
       body: GradientBackground(
+        useSafeArea: false,
         child: SafeArea(
           child: Form(
             key: _formKey,
@@ -270,29 +279,32 @@ class _LoginScreenState extends State<LoginScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+
+                  // --- Logo ---
                   const LmsLogo(size: 100),
-                  const SizedBox(height: 40),
-                  
+
+                  const SizedBox(height: 32),
+
+                  // --- Title ---
                   Text(
                     'Bentornato',
-                    style: Theme.of(context).textTheme.headlineMedium!.copyWith(
+                    style: theme.textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  
                   const SizedBox(height: 8),
                   Text(
                     'Accedi al tuo account',
-                    style: Theme.of(context).textTheme.bodyLarge!.copyWith(
-                      color: Colors.white70,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.6),
                     ),
                   ),
-                  
-                  const SizedBox(height: 40),
-                  
-                  // Campo Email
+
+                  const SizedBox(height: 36),
+
+                  // --- Email ---
                   TextFormField(
                     controller: _emailController,
                     focusNode: _emailFocus,
@@ -300,35 +312,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     textInputAction: TextInputAction.next,
                     validator: _validateEmail,
                     style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      labelStyle: const TextStyle(color: Colors.white70),
-                      prefixIcon: const Icon(Icons.email_outlined, color: Colors.white70),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white38),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white, width: 2),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.red),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.red, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
+                    decoration: _inputDecoration(
+                      label: 'Email',
+                      prefixIcon: Icons.email_outlined,
                     ),
                     onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
-                  // Campo Password
+
+                  // --- Password ---
                   TextFormField(
                     controller: _passwordController,
                     focusNode: _passwordFocus,
@@ -336,169 +329,165 @@ class _LoginScreenState extends State<LoginScreen> {
                     textInputAction: TextInputAction.done,
                     validator: _validatePassword,
                     style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: const TextStyle(color: Colors.white70),
-                      prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
+                    decoration: _inputDecoration(
+                      label: 'Password',
+                      prefixIcon: Icons.lock_outline,
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.white70,
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
                         ),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () =>
+                            setState(() => _obscurePassword = !_obscurePassword),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white38),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.white, width: 2),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.red),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Colors.red, width: 2),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
                     ),
                     onFieldSubmitted: (_) => _signInWithEmail(),
                   ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Remember me e Forgot Password
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _rememberMe,
-                            onChanged: (value) => setState(() => _rememberMe = value ?? false),
-                            fillColor: WidgetStateProperty.all(Colors.white),
-                            checkColor: const Color(0xFFE64A19),
-                          ),
-                          const Text(
-                            'Ricordami',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                      TextButton(
-                        onPressed: _resetPassword,
-                        child: const Text(
-                          'Password dimenticata?',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
+
+                  const SizedBox(height: 12),
+
+                  // --- Forgot password ---
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _resetPassword,
+                      child: const Text('Password dimenticata?'),
+                    ),
                   ),
-                  
+
+                  // --- Error banner ---
                   if (_errorMessage != null) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        border: Border.all(color: Colors.red.withOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppTheme.errorRed.withValues(alpha: 0.12),
+                        border: Border.all(
+                          color: AppTheme.errorRed.withValues(alpha: 0.4),
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppTheme.errorRed,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.errorRed,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Pulsante Login
+
+                  const SizedBox(height: 28),
+
+                  // --- Login button ---
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: AppSizes.buttonHeight,
                     child: ElevatedButton(
                       onPressed: _loading ? null : _signInWithEmail,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE64A19),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 4,
-                      ),
                       child: _loading
                           ? const SizedBox(
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(
                                 color: Colors.white,
-                                strokeWidth: 2,
+                                strokeWidth: 2.5,
                               ),
                             )
-                          : const Text(
-                              'Accedi',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          : const Text('Accedi'),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
-                  // Divider
+
+                  // --- Divider ---
                   Row(
                     children: [
-                      const Expanded(child: Divider(color: Colors.white38)),
+                      Expanded(
+                        child: Divider(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'oppure continua con',
-                          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
                         ),
                       ),
-                      const Expanded(child: Divider(color: Colors.white38)),
+                      Expanded(
+                        child: Divider(
+                          color: Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
                     ],
                   ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Social Login Buttons
+
+                  const SizedBox(height: 28),
+
+                  // --- Social buttons ---
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SocialButton(
-                        asset: 'assets/icons/google-logo.png',
-                        onTap: _loading ? () {} : _signInWithGoogle,
+                      SocialButton.google(
+                        onPressed: _signInWithGoogle,
+                        isLoading: _loading,
                       ),
-                      SocialButton(
-                        asset: 'assets/icons/facebook.avif',
-                        onTap: _loading ? () {} : _signInWithFacebook,
+                      const SizedBox(width: 16),
+                      SocialButton.facebook(
+                        onPressed: _signInWithFacebook,
+                        isLoading: _loading,
                       ),
-                      if (Theme.of(context).platform == TargetPlatform.iOS)
-                        SocialButton(
-                          asset: 'assets/icons/apple.png',
-                          onTap: _loading ? () {} : _signInWithApple,
+                      if (Theme.of(context).platform == TargetPlatform.iOS) ...[
+                        const SizedBox(width: 16),
+                        SocialButton.apple(
+                          onPressed: _signInWithApple,
+                          isLoading: _loading,
                         ),
+                      ],
                     ],
                   ),
-                  
-                  const SizedBox(height: 32),
+
+                  const SizedBox(height: 36),
+
+                  // --- Register link ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Non hai un account?',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterScreen(),
+                          ),
+                        ),
+                        child: const Text('Registrati'),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
                 ],
               ),
             ),

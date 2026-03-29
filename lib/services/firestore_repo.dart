@@ -4,130 +4,60 @@ import '../models/matchday.dart';
 import '../models/pick.dart';
 import '../models/user_data.dart';
 
-/// Repository per operazioni Firestore con gestione errori migliorata
 class FirestoreRepo {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
-  
-  // Cache per ridurre le chiamate ripetute
+
   Matchday? _cachedMatchday;
   DateTime? _lastMatchdayFetch;
-  static const Duration _cacheValidityDuration = Duration(minutes: 5);
-  
+  static const Duration _cacheDuration = Duration(minutes: 5);
+
   FirestoreRepo({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance {
-    // Configura settings per performance
-    _db.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
-  }
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  /// Recupera i dati della prossima giornata con cache
   Future<Matchday> fetchNextMatchday() async {
-    try {
-      // Controlla se la cache è ancora valida
-      if (_cachedMatchday != null && 
-          _lastMatchdayFetch != null &&
-          DateTime.now().difference(_lastMatchdayFetch!) < _cacheValidityDuration) {
-        return _cachedMatchday!;
-      }
-
-      final docRef = _db.collection('matchdays').doc('next');
-      final snap = await docRef.get(const GetOptions(source: Source.serverAndCache));
-      
-      if (!snap.exists) {
-        // Se non esiste, crea dati mock per testing
-        return _createMockMatchday();
-      }
-      
-      final data = snap.data();
-      if (data == null) {
-        return _createMockMatchday();
-      }
-      
-      final matchday = Matchday.fromJson(data);
-      
-      // Aggiorna cache
-      _cachedMatchday = matchday;
-      _lastMatchdayFetch = DateTime.now();
-      
-      return matchday;
-    } on FirebaseException catch (e) {
-      // Se Firebase non è configurato, usa dati mock
-      print('Firebase error, using mock data: ${e.message}');
-      return _createMockMatchday();
-    } catch (e) {
-      print('Error fetching matchday, using mock data: $e');
-      return _createMockMatchday();
+    if (_cachedMatchday != null &&
+        _lastMatchdayFetch != null &&
+        DateTime.now().difference(_lastMatchdayFetch!) < _cacheDuration) {
+      return _cachedMatchday!;
     }
+
+    final snap = await _db
+        .collection('matchdays')
+        .doc('next')
+        .get(const GetOptions(source: Source.serverAndCache));
+
+    if (!snap.exists || snap.data() == null) {
+      throw const MatchdayNotFoundException();
+    }
+
+    final matchday = Matchday.fromJson(snap.data()!);
+    _cachedMatchday = matchday;
+    _lastMatchdayFetch = DateTime.now();
+    return matchday;
   }
 
-  /// Crea dati mock per testing
-  Matchday _createMockMatchday() {
-    final now = DateTime.now();
-    // Prossima deadline: domenica alle 14:00
-    DateTime nextDeadline = now.add(Duration(days: (DateTime.sunday - now.weekday) % 7));
-    if (nextDeadline.isBefore(now) || nextDeadline.day == now.day) {
-      nextDeadline = nextDeadline.add(const Duration(days: 7));
-    }
-    nextDeadline = DateTime(nextDeadline.year, nextDeadline.month, nextDeadline.day, 14, 0);
-
-    return Matchday(
-      giornata: 15, // Giornata corrente
-      deadline: nextDeadline,
-      validTeams: [], // Nessuna restrizione = tutte le squadre
-      type: MatchdayType.normal,
-      status: MatchdayStatus.active,
-      participantsCount: 156,
-      activePlayers: 89,
-    );
-  }
-
-  /// Stream dei dati utente con gestione errori migliorata
   Stream<UserData> streamUserData(String uid) {
-    if (uid.isEmpty) {
-      throw const InvalidUserIdException();
-    }
+    if (uid.isEmpty) throw const InvalidUserIdException();
 
     return _db
         .collection('users')
         .doc(uid)
-        .snapshots(includeMetadataChanges: false)
+        .snapshots()
         .map((snap) {
-          try {
-            // Se il documento non esiste, crea uno di default
-            if (!snap.exists) {
-              _createDefaultUserDocument(uid);
-              return UserData(jollyLeft: 0, teamsUsed: []);
-            }
-            
-            final data = snap.data();
-            if (data == null) {
-              return UserData(jollyLeft: 0, teamsUsed: []);
-            }
-            
-            return UserData.fromJson(data);
-          } catch (e) {
-            throw FirestoreException('Errore nella deserializzazione dei dati utente: $e');
-          }
-        })
-        .handleError((error) {
-          if (error is FirebaseException) {
-            throw FirestoreException('Errore nel stream dati utente: ${error.message}', error.code);
-          }
-          throw FirestoreException('Errore sconosciuto nel stream dati utente: $error');
-        });
+      if (!snap.exists || snap.data() == null) {
+        _createDefaultUserDocument(uid);
+        return UserData(teamsUsed: []);
+      }
+      return UserData.fromJson(snap.data()!);
+    });
   }
 
-  /// Stream delle scelte dell'utente
   Stream<List<Pick>> streamUserPicks(String uid) {
-    if (uid.isEmpty) {
-      throw const InvalidUserIdException();
-    }
+    if (uid.isEmpty) throw const InvalidUserIdException();
 
     return _db
         .collection('users')
@@ -135,274 +65,165 @@ class FirestoreRepo {
         .collection('picks')
         .orderBy('giornata', descending: true)
         .snapshots()
-        .map((snap) {
-          return snap.docs.map((doc) {
-            try {
-              final data = doc.data();
-              return Pick.fromJson(data);
-            } catch (e) {
-              throw FirestoreException('Errore nella deserializzazione delle scelte: $e');
-            }
-          }).toList();
-        })
-        .handleError((error) {
-          if (error is FirebaseException) {
-            throw FirestoreException('Errore nel recupero delle scelte: ${error.message}', error.code);
-          }
-          throw FirestoreException('Errore sconosciuto nel recupero delle scelte: $error');
-        });
+        .map((snap) =>
+            snap.docs.map((doc) => Pick.fromJson(doc.data())).toList());
   }
 
-  /// Invia una scelta con validazione e transazione
+  /// Submit a pick with transaction-based validation
   Future<void> submitPick(String uid, Pick pick) async {
-    if (uid.isEmpty) {
-      throw const InvalidUserIdException();
-    }
-
-    // Validazioni preliminari
+    if (uid.isEmpty) throw const InvalidUserIdException();
     await _validatePick(uid, pick);
 
-    try {
-      // Usa una transazione per garantire consistenza
-      await _db.runTransaction((transaction) async {
-        final userRef = _db.collection('users').doc(uid);
-        final pickRef = userRef.collection('picks').doc(pick.giornata.toString());
-        
-        // Verifica che l'utente non abbia già fatto una scelta per questa giornata
-        final existingPick = await transaction.get(pickRef);
-        if (existingPick.exists) {
-          throw const PickAlreadyExistsException();
-        }
-        
-        // Verifica i dati utente correnti
-        final userDoc = await transaction.get(userRef);
-        UserData userData;
-        
-        if (!userDoc.exists) {
-          // Crea documento utente se non esiste
-          userData = UserData(jollyLeft: 0, teamsUsed: []);
-          transaction.set(userRef, userData.toJson());
-        } else {
-          userData = UserData.fromJson(userDoc.data()!);
-        }
-        
-        // Verifica che la squadra non sia già stata usata (a meno che non sia una giornata a tema)
-        final matchday = await fetchNextMatchday();
-        if (matchday.validTeams.isEmpty && userData.teamsUsed.contains(pick.team)) {
-          throw TeamAlreadyUsedException(pick.team);
-        }
-        
-        // Salva la scelta
-        transaction.set(pickRef, pick.toJson());
-        
-        // Aggiorna la lista delle squadre usate solo se non è una giornata a tema
-        if (matchday.validTeams.isEmpty) {
-          transaction.update(userRef, {
-            'teamsUsed': FieldValue.arrayUnion([pick.team]),
-            'lastPickDate': FieldValue.serverTimestamp(),
-          });
-        }
+    await _db.runTransaction((tx) async {
+      final userRef = _db.collection('users').doc(uid);
+      final pickRef =
+          userRef.collection('picks').doc(pick.giornata.toString());
+
+      final existingPick = await tx.get(pickRef);
+      if (existingPick.exists) throw const PickAlreadyExistsException();
+
+      final userDoc = await tx.get(userRef);
+      UserData userData;
+      if (!userDoc.exists) {
+        userData = UserData(teamsUsed: []);
+        tx.set(userRef, userData.toJson());
+      } else {
+        userData = UserData.fromJson(userDoc.data()!);
+      }
+
+      if (userData.hasUsedTeam(pick.team)) {
+        throw TeamAlreadyUsedException(pick.team);
+      }
+      if (pick.secondTeam != null && userData.hasUsedTeam(pick.secondTeam!)) {
+        throw TeamAlreadyUsedException(pick.secondTeam!);
+      }
+
+      tx.set(pickRef, pick.toJson());
+
+      final teamsToAdd = [pick.team];
+      if (pick.secondTeam != null) teamsToAdd.add(pick.secondTeam!);
+
+      tx.update(userRef, {
+        'teamsUsed': FieldValue.arrayUnion(teamsToAdd),
+        'lastPickDate': FieldValue.serverTimestamp(),
       });
-      
-      // Invalida cache se necessario
-      _invalidateCache();
-      
-    } on FirebaseException catch (e) {
-      throw FirestoreException('Errore nell\'invio della scelta: ${e.message}', e.code);
-    } catch (e) {
-      if (e is FirestoreException) rethrow;
-      throw FirestoreException('Errore sconosciuto nell\'invio della scelta: $e');
-    }
+    });
+
+    _invalidateCache();
   }
 
-  /// Acquista un jolly (placeholder per implementazione futura)
-  Future<void> purchaseJolly(String uid) async {
-    if (uid.isEmpty) {
-      throw const InvalidUserIdException();
-    }
+  /// Use a Gold Ticket for automatic survival on a matchday
+  Future<void> useGoldTicket(String uid, int giornata) async {
+    if (uid.isEmpty) throw const InvalidUserIdException();
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final userRef = _db.collection('users').doc(uid);
-        final userDoc = await transaction.get(userRef);
-        
-        if (!userDoc.exists) {
-          throw const UserNotFoundException();
-        }
-        
-        final userData = UserData.fromJson(userDoc.data()!);
-        
-        if (userData.jollyLeft >= 3) {
-          throw const MaxJollyReachedException();
-        }
-        
-        // TODO: Implementare logica di pagamento qui
-        
-        transaction.update(userRef, {
-          'jollyLeft': userData.jollyLeft + 1,
-          'lastJollyPurchase': FieldValue.serverTimestamp(),
-        });
+    await _db.runTransaction((tx) async {
+      final userRef = _db.collection('users').doc(uid);
+      final userDoc = await tx.get(userRef);
+
+      if (!userDoc.exists) throw const UserNotFoundException();
+      final userData = UserData.fromJson(userDoc.data()!);
+
+      if (!userData.hasGoldTicket) {
+        throw const NoGoldTicketException();
+      }
+
+      final pickRef =
+          userRef.collection('picks').doc(giornata.toString());
+      final pickDoc = await tx.get(pickRef);
+
+      if (pickDoc.exists) {
+        throw const PickAlreadyExistsException();
+      }
+
+      // Create a pick that uses the gold ticket (automatic win)
+      final goldTicketPick = Pick(
+        giornata: giornata,
+        team: 'GOLD_TICKET',
+        usedGoldTicket: true,
+        result: PickResult.win,
+      );
+
+      tx.set(pickRef, goldTicketPick.toJson());
+      tx.update(userRef, {
+        'goldTickets': userData.goldTickets - 1,
       });
-    } on FirebaseException catch (e) {
-      throw FirestoreException('Errore nell\'acquisto del jolly: ${e.message}', e.code);
-    } catch (e) {
-      if (e is FirestoreException) rethrow;
-      throw FirestoreException('Errore sconosciuto nell\'acquisto del jolly: $e');
-    }
+    });
   }
 
-  /// Usa un jolly per salvarsi da un'eliminazione
-  Future<void> useJolly(String uid, int giornata) async {
-    if (uid.isEmpty) {
-      throw const InvalidUserIdException();
-    }
+  /// Award a Gold Ticket after a successful Double Choice
+  Future<void> awardGoldTicket(String uid) async {
+    if (uid.isEmpty) throw const InvalidUserIdException();
 
-    try {
-      await _db.runTransaction((transaction) async {
-        final userRef = _db.collection('users').doc(uid);
-        final userDoc = await transaction.get(userRef);
-        
-        if (!userDoc.exists) {
-          throw const UserNotFoundException();
-        }
-        
-        final userData = UserData.fromJson(userDoc.data()!);
-        
-        if (userData.jollyLeft <= 0) {
-          throw const NoJollyAvailableException();
-        }
-        
-        // Aggiorna la scelta con il jolly usato
-        final pickRef = userRef.collection('picks').doc(giornata.toString());
-        final pickDoc = await transaction.get(pickRef);
-        
-        if (!pickDoc.exists) {
-          throw const PickNotFoundException();
-        }
-        
-        final pick = Pick.fromJson(pickDoc.data()!);
-        if (pick.usedJolly) {
-          throw const JollyAlreadyUsedException();
-        }
-        
-        transaction.update(pickRef, {'usedJolly': true});
-        transaction.update(userRef, {
-          'jollyLeft': userData.jollyLeft - 1,
-          'lastJollyUsed': FieldValue.serverTimestamp(),
-        });
-      });
-    } on FirebaseException catch (e) {
-      throw FirestoreException('Errore nell\'uso del jolly: ${e.message}', e.code);
-    } catch (e) {
-      if (e is FirestoreException) rethrow;
-      throw FirestoreException('Errore sconosciuto nell\'uso del jolly: $e');
-    }
+    await _db.collection('users').doc(uid).update({
+      'goldTickets': FieldValue.increment(1),
+    });
   }
 
-  /// Recupera la classifica generale
   Future<List<UserRanking>> getLeaderboard() async {
-    try {
-      final query = await _db
-          .collection('users')
-          .where('isActive', isEqualTo: true)
-          .orderBy('currentStreak', descending: true)
-          .orderBy('totalWins', descending: true)
-          .limit(100)
-          .get();
+    final query = await _db
+        .collection('users')
+        .where('isActive', isEqualTo: true)
+        .orderBy('currentStreak', descending: true)
+        .orderBy('totalSurvivals', descending: true)
+        .limit(100)
+        .get();
 
-      return query.docs.map((doc) {
-        final data = doc.data();
-        return UserRanking.fromJson({...data, 'uid': doc.id});
-      }).toList();
-    } on FirebaseException catch (e) {
-      throw FirestoreException('Errore nel recupero della classifica: ${e.message}', e.code);
-    } catch (e) {
-      throw FirestoreException('Errore sconosciuto nel recupero della classifica: $e');
-    }
+    return query.docs.map((doc) {
+      return UserRanking.fromJson({...doc.data(), 'uid': doc.id});
+    }).toList();
   }
 
-  // === METODI PRIVATI ===
-
-  /// Valida una scelta prima dell'invio
   Future<void> _validatePick(String uid, Pick pick) async {
-    // Verifica che la giornata sia valida
     if (pick.giornata < 1 || pick.giornata > 38) {
       throw const InvalidMatchdayException();
     }
+    if (pick.team.trim().isEmpty) throw const InvalidTeamException();
 
-    // Verifica che la squadra non sia vuota
-    if (pick.team.trim().isEmpty) {
-      throw const InvalidTeamException();
-    }
-
-    // Verifica che non sia scaduto il termine
     final matchday = await fetchNextMatchday();
     if (DateTime.now().isAfter(matchday.deadline)) {
       throw const DeadlineExpiredException();
     }
-
-    // Verifica che sia la giornata corretta
     if (pick.giornata != matchday.giornata) {
       throw const WrongMatchdayException();
     }
   }
 
-  /// Crea un documento utente di default
   Future<void> _createDefaultUserDocument(String uid) async {
-    try {
-      final user = _auth.currentUser;
-      final defaultData = {
-        'jollyLeft': 0,
-        'teamsUsed': <String>[],
-        'isActive': true,
-        'currentStreak': 0,
-        'totalWins': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'displayName': user?.displayName ?? 'Utente',
-        'email': user?.email,
-      };
-
-      await _db.collection('users').doc(uid).set(defaultData);
-    } catch (e) {
-      // Log error but don't throw to avoid breaking the stream
-      print('Errore nella creazione del documento utente: $e');
-    }
+    final user = _auth.currentUser;
+    await _db.collection('users').doc(uid).set({
+      'goldTickets': 0,
+      'teamsUsed': <String>[],
+      'isActive': true,
+      'currentStreak': 0,
+      'totalSurvivals': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+      'displayName': user?.displayName ?? 'Utente',
+      'email': user?.email,
+    });
   }
 
-  /// Invalida la cache
   void _invalidateCache() {
     _cachedMatchday = null;
     _lastMatchdayFetch = null;
   }
 
-  /// Cleanup per rilasciare risorse
-  void dispose() {
-    _invalidateCache();
-  }
+  void dispose() => _invalidateCache();
 }
 
-// === ECCEZIONI PERSONALIZZATE ===
+// === EXCEPTIONS ===
 
 class FirestoreException implements Exception {
   final String message;
   final String? code;
-  
   const FirestoreException(this.message, [this.code]);
-  
   @override
-  String toString() => 'FirestoreException: $message${code != null ? ' (Code: $code)' : ''}';
+  String toString() => message;
 }
 
 class MatchdayNotFoundException implements Exception {
   const MatchdayNotFoundException();
   @override
   String toString() => 'Dati della giornata non trovati';
-}
-
-class InvalidMatchdayDataException implements Exception {
-  const InvalidMatchdayDataException();
-  @override
-  String toString() => 'Dati della giornata non validi';
 }
 
 class InvalidUserIdException implements Exception {
@@ -454,16 +275,10 @@ class WrongMatchdayException implements Exception {
   String toString() => 'Giornata non corrispondente';
 }
 
-class MaxJollyReachedException implements Exception {
-  const MaxJollyReachedException();
+class NoGoldTicketException implements Exception {
+  const NoGoldTicketException();
   @override
-  String toString() => 'Hai raggiunto il limite massimo di jolly';
-}
-
-class NoJollyAvailableException implements Exception {
-  const NoJollyAvailableException();
-  @override
-  String toString() => 'Non hai jolly disponibili';
+  String toString() => 'Non hai Gold Ticket disponibili';
 }
 
 class PickNotFoundException implements Exception {
@@ -472,26 +287,18 @@ class PickNotFoundException implements Exception {
   String toString() => 'Scelta non trovata';
 }
 
-class JollyAlreadyUsedException implements Exception {
-  const JollyAlreadyUsedException();
-  @override
-  String toString() => 'Jolly già utilizzato per questa giornata';
-}
-
-// === MODELLI AGGIUNTIVI ===
-
 class UserRanking {
   final String uid;
   final String displayName;
   final int currentStreak;
-  final int totalWins;
+  final int totalSurvivals;
   final bool isActive;
 
   UserRanking({
     required this.uid,
     required this.displayName,
     required this.currentStreak,
-    required this.totalWins,
+    required this.totalSurvivals,
     required this.isActive,
   });
 
@@ -500,7 +307,7 @@ class UserRanking {
       uid: json['uid'] ?? '',
       displayName: json['displayName'] ?? 'Utente',
       currentStreak: json['currentStreak'] ?? 0,
-      totalWins: json['totalWins'] ?? 0,
+      totalSurvivals: json['totalSurvivals'] ?? json['totalWins'] ?? 0,
       isActive: json['isActive'] ?? true,
     );
   }
