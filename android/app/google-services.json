@@ -12,7 +12,20 @@
           "package_name": "com.example.last_man_standing"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "287321519422-e06rlnlqpcp3j02iuhkh222vn846ufg3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.last_man_standing",
+            "certificate_hash": "1b8cb0e081a7bb23004eef20e6ae25668569c716"
+          }
+        },
+        {
+          "client_id": "287321519422-n65ag4bogd8a8fnoekc69k01aje98mn7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAbqt3BrscEULyvKVnwMdhRkLr0qOAIn74"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "287321519422-n65ag4bogd8a8fnoekc69k01aje98mn7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "287321519422-td71cc3u4immv63km6no9j1jta08bqd9.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lastManStanding"
+              }
+            }
+          ]
         }
       }
     }
