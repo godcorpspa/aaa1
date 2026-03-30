@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:last_man_standing/providers/league_providers.dart';
-import '../widgets/gradient_background.dart';
 import '../theme/app_theme.dart';
 import '../models/league_models.dart';
+import '../providers/league_providers.dart';
 import '../services/league_service.dart';
 
 class PublicLeaguesScreen extends ConsumerWidget {
@@ -11,325 +10,288 @@ class PublicLeaguesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Recupera le leghe pubbliche dal provider
-    final publicLeaguesAsync = ref.watch(publicLeaguesProvider(null));
+    final leaguesAsync = ref.watch(publicLeaguesProvider(null));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppTheme.primaryDark,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: const Text('Leghe Pubbliche'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Leghe pubbliche',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.6,
-          ),
-        ),
       ),
-      extendBodyBehindAppBar: true,
-      body: GradientBackground(
-        child: SafeArea(
-          child: publicLeaguesAsync.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-            error: (error, stack) => _buildErrorWidget(context, ref, error),
-            data: (leagues) => _buildContent(context, ref, leagues),
+      body: SafeArea(
+        child: leaguesAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryRed),
           ),
+          error: (e, _) => _ErrorView(error: e, ref: ref),
+          data: (leagues) {
+            if (leagues.isEmpty) return const _EmptyView();
+            return _LeagueList(leagues: leagues);
+          },
         ),
       ),
     );
   }
+}
 
-  /// Contenuto principale – lista leghe
-  Widget _buildContent(BuildContext context, WidgetRef ref, List<LastManStandingLeague> leagues) {
-    if (leagues.isEmpty) {
-      return const Center(
-        child: Text(
-          'Nessuna lega pubblica disponibile al momento.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      );
-    }
+// ---------------------------------------------------------------------------
+// League list
+// ---------------------------------------------------------------------------
+class _LeagueList extends ConsumerWidget {
+  const _LeagueList({required this.leagues});
+  final List<LastManStandingLeague> leagues;
 
-    return Column(
-      children: [
-        const SizedBox(height: 20),
-
-        // Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text(
-            'Scegli una lega pubblica e inizia a giocare!',
-            style: Theme.of(context).textTheme.titleMedium!.copyWith(
-              color: Colors.white70,
-              letterSpacing: 0.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // Lista leghe
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              // Chiede nuovamente i dati al provider
-              ref.invalidate(publicLeaguesProvider(null));
-              await Future.delayed(const Duration(seconds: 1));
-            },
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: leagues.length,
-              itemBuilder: (context, index) =>
-                  _buildLeagueCard(context, ref, leagues[index]),
-            ),
-          ),
-        ),
-      ],
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RefreshIndicator(
+      color: AppTheme.primaryRed,
+      onRefresh: () async {
+        ref.invalidate(publicLeaguesProvider(null));
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        itemCount: leagues.length,
+        itemBuilder: (_, i) => _LeagueCard(league: leagues[i]),
+      ),
     );
   }
+}
 
-  /// Card per singola lega
-  Widget _buildLeagueCard(BuildContext context, WidgetRef ref, LastManStandingLeague league) {
-    final bool isFull = league.currentParticipants >= league.maxParticipants;
+// ---------------------------------------------------------------------------
+// League card
+// ---------------------------------------------------------------------------
+class _LeagueCard extends ConsumerWidget {
+  const _LeagueCard({required this.league});
+  final LastManStandingLeague league;
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: AppTheme.elevatedCard,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Name + status badge
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  league.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              _StatusBadge(isFull: league.isFull),
+            ],
+          ),
+
+          if (league.description.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              league.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 14,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: AppSpacing.md),
+
+          // Participants count
+          Row(
+            children: [
+              Icon(Icons.people_rounded,
+                  color: Colors.white.withValues(alpha: 0.5), size: 16),
+              const SizedBox(width: 6),
+              Text(
+                '${league.currentParticipants}/${league.maxParticipants} partecipanti',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.person_rounded,
+                  color: Colors.white.withValues(alpha: 0.5), size: 16),
+              const SizedBox(width: 6),
+              Text(
+                league.creatorName,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.lg),
+
+          // Join button
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton(
+              onPressed: league.isFull
+                  ? null
+                  : () => _join(context, ref),
+              child: const Text('Entra'),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _join(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          const Center(child: CircularProgressIndicator(color: AppTheme.primaryRed)),
+    );
+
+    try {
+      final service = ref.read(leagueServiceProvider);
+      await service.joinLeague(leagueId: league.id);
+      navigator.pop(); // close loader
+      ref.invalidate(currentUserLeaguesProvider);
+      ref.invalidate(publicLeaguesProvider(null));
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Ti sei unito alla lega con successo!')),
+      );
+      navigator.pop(); // back to previous screen
+    } on LeagueException catch (e) {
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      navigator.pop();
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Si e\' verificato un errore imprevisto.')),
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status badge
+// ---------------------------------------------------------------------------
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.isFull});
+  final bool isFull;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isFull ? AppTheme.errorRed : AppTheme.successGreen;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        isFull ? 'PIENA' : 'APERTA',
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty view
+// ---------------------------------------------------------------------------
+class _EmptyView extends StatelessWidget {
+  const _EmptyView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Header con nome e status
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        league.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        league.description,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 14,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isFull
-                        ? Colors.red.withOpacity(0.2)
-                        : Colors.green.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isFull
-                          ? Colors.red.withOpacity(0.5)
-                          : Colors.green.withOpacity(0.5),
-                    ),
-                  ),
-                  child: Text(
-                    isFull ? 'PIENA' : 'APERTA',
-                    style: TextStyle(
-                      color: isFull ? Colors.red : Colors.green,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Informazioni lega
-            Row(
-              children: [
-                _buildInfoItem(
-                  icon: Icons.people,
-                  label: 'Partecipanti',
-                  value:
-                      '${league.currentParticipants}/${league.maxParticipants}',
-                ),
-                const SizedBox(width: 20),
-                _buildInfoItem(
-                  icon: Icons.person,
-                  label: 'Creatore',
-                  value: league.creatorName,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                _buildInfoItem(
-                  icon: Icons.calendar_today,
-                  label: 'Creata',
-                  value: _formatDate(league.createdAt),
-                ),
-                const SizedBox(width: 20),
-                _buildInfoItem(
-                  icon: league.isPrivate ? Icons.lock : Icons.public,
-                  label: 'Tipo',
-                  value: league.isPrivate ? 'Privata' : 'Pubblica',
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // Pulsante entra
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isFull
-                    ? null
-                    : () {
-                        _joinLeague(context, ref, league);
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      isFull ? Colors.grey : AppTheme.accentOrange,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  'Entra',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
+            Icon(Icons.search_off_rounded,
+                size: 56, color: Colors.white.withValues(alpha: 0.3)),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Nessuna lega pubblica disponibile',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 16,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  /// Azione di join alla lega
-  Future<void> _joinLeague(BuildContext context, WidgetRef ref, LastManStandingLeague league) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
+// ---------------------------------------------------------------------------
+// Error view
+// ---------------------------------------------------------------------------
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.error, required this.ref});
+  final Object error;
+  final WidgetRef ref;
 
-    // Servizio
-    final leagueService = ref.read(leagueServiceProvider);
-
-    // Mostra loader
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      await leagueService.joinLeague(leagueId: league.id);
-      navigator.pop(); // chiude il dialog
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Ti sei unito alla lega con successo!')),
-      );
-      // aggiorna i provider interessati
-      ref.invalidate(currentUserLeaguesProvider);
-      ref.invalidate(publicLeaguesProvider(null));
-      navigator.pop(); // torna alla schermata precedente
-    } on LeagueException catch (e) {
-      navigator.pop();
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    } catch (e) {
-      navigator.pop();
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Si è verificato un errore imprevisto.')),
-      );
-    }
-  }
-
-  /// Widget singolo info (etichetta + valore)
-  Widget _buildInfoItem({required IconData icon, required String label, required String value}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white70, size: 16),
-        const SizedBox(width: 4),
-        Text(
-          '$label: ',
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-        Text(
-          value,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
-      ],
-    );
-  }
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
-  /// Widget di errore
-  Widget _buildErrorWidget(BuildContext context, WidgetRef ref, Object error) {
+  @override
+  Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
-          const SizedBox(height: 12),
-          const Text(
-            'Errore nel caricamento delle leghe pubbliche.',
-            style: TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            error.toString(),
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              ref.invalidate(publicLeaguesProvider(null));
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Riprova'),
-          )
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: AppTheme.errorRed, size: 48),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Errore nel caricamento delle leghe.',
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7), fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              error.toString(),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ElevatedButton.icon(
+              onPressed: () =>
+                  ref.invalidate(publicLeaguesProvider(null)),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Riprova'),
+            ),
+          ],
+        ),
       ),
     );
   }

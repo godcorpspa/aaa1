@@ -8,7 +8,6 @@ import '../shared_providers.dart';
 import '../providers/league_providers.dart';
 import 'create_league_screen.dart';
 import 'join_league_screen.dart';
-import 'public_leagues_screen.dart';
 
 class ProfiloScreen extends ConsumerWidget {
   const ProfiloScreen({super.key});
@@ -20,505 +19,247 @@ class ProfiloScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'PROFILO',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        centerTitle: true,
-        automaticallyImplyLeading: false, // Rimuove il back button
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white),
-            onPressed: () => _showSettingsDialog(context),
-            tooltip: 'Impostazioni',
-          ),
-        ],
-      ),
       body: SafeArea(
         child: userDataAsync.when(
           loading: () => const Center(
-            child: CircularProgressIndicator(color: Colors.white),
+            child: CircularProgressIndicator(color: AppTheme.primaryRed),
           ),
-          error: (error, stack) => _buildErrorWidget(context, error),
-          data: (userData) => _buildContent(context, ref, user, userData), // PASSA ref QUI
+          error: (e, _) => _errorView(e),
+          data: (userData) {
+            if (user == null) return _notAuthView();
+            return _Content(user: user, userData: userData);
+          },
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, User? user, dynamic userData) {
-    if (user == null) {
-      return _buildNotAuthenticatedView();
-    }
+  Widget _errorView(Object error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded,
+                size: 48, color: Colors.white.withValues(alpha: 0.5)),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Errore nel caricamento del profilo',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _notAuthView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.login_rounded,
+              size: 56, color: Colors.white.withValues(alpha: 0.5)),
+          const SizedBox(height: AppSpacing.lg),
+          const Text(
+            'Accesso richiesto',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Devi essere autenticato per\naccedere al profilo',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5), fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main content (needs ref for league selection)
+// ---------------------------------------------------------------------------
+class _Content extends ConsumerWidget {
+  const _Content({required this.user, required this.userData});
+  final User user;
+  final dynamic userData;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final userLeagues = ref.watch(currentUserLeaguesProvider);
     final selectedLeague = ref.watch(selectedLeagueProvider);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          
-          // Avatar e info utente
-          _buildUserHeader(user, userData),
-          
-          const SizedBox(height: 32),
-          
-          // Sezione Leghe - PASSA ref QUI
+          const SizedBox(height: AppSpacing.md),
+
+          // Avatar + user info
+          _buildHeader(context),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Le Mie Leghe
           _buildLeaguesSection(context, ref, userLeagues, selectedLeague),
-          
-          const SizedBox(height: 32),
-          
-          // Azioni profilo
-          _buildProfileActions(context),
-          
-          const SizedBox(height: 32),
-          
-          // Info app
-          _buildAppInfo(context),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Settings
+          _buildSettings(context),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Logout
+          SizedBox(
+            width: double.infinity,
+            height: AppSizes.buttonHeight,
+            child: OutlinedButton.icon(
+              onPressed: () => _showLogoutDialog(context),
+              icon: const Icon(Icons.logout_rounded, color: AppTheme.errorRed),
+              label: const Text(
+                'Esci',
+                style: TextStyle(color: AppTheme.errorRed),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                    color: AppTheme.errorRed.withValues(alpha: 0.4)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.lg)),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.xl),
         ],
       ),
     );
   }
 
-// Aggiungi questo nuovo metodo per la sezione leghe
-Widget _buildLeaguesSection(
-  BuildContext context,
-  WidgetRef ref, // AGGIUNGI ref
-  AsyncValue<List<LastManStandingLeague>> userLeagues,
-  String? selectedLeague,
-) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.white.withOpacity(0.2)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.groups, color: Colors.white, size: 24),
-            const SizedBox(width: 12),
-            const Text(
-              'LE MIE LEGHE',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-            const Spacer(),
-            // Pulsante per gestire leghe
-            IconButton(
-              onPressed: () => _showLeagueManagementDialog(context),
-              icon: const Icon(Icons.settings, color: Colors.white70),
-              tooltip: 'Gestisci leghe',
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        userLeagues.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
-          error: (error, stack) => Text(
-            'Errore nel caricamento leghe',
-            style: TextStyle(color: Colors.red.shade300),
-          ),
-          data: (leagues) {
-            if (leagues.isEmpty) {
-              return _buildNoLeaguesWidget(context);
-            }
-            
-            return Column(
-              children: [
-                // Lista delle leghe con selezione
-                ...leagues.map((league) => _buildLeagueItem(
-                  league,
-                  isSelected: league.id == selectedLeague,
-                  onTap: () {
-                    ref.read(selectedLeagueProvider.notifier).selectLeague(league.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Lega "${league.name}" selezionata'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                )).toList(),
-                
-                const SizedBox(height: 16),
-                
-                // Pulsanti azione
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _navigateToCreateLeague(context),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Crea Lega'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white54),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _navigateToJoinLeague(context),
-                        icon: const Icon(Icons.group_add),
-                        label: const Text('Unisciti'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white54),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildLeagueItem(
-  LastManStandingLeague league,
-  {required bool isSelected, required VoidCallback onTap}
-) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected 
-              ? AppTheme.accentOrange.withOpacity(0.2)
-              : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected 
-                ? AppTheme.accentOrange
-                : Colors.white.withOpacity(0.2),
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Icona lega
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isSelected 
-                    ? AppTheme.accentOrange
-                    : Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  league.isPrivate ? Icons.lock : Icons.public,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              
-              // Info lega
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      league.name,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${league.currentParticipants} partecipanti • ${league.stats.activePlayers} attivi',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Indicatore selezione
-              if (isSelected)
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentOrange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _buildNoLeaguesWidget(BuildContext context) {
-  return Container(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      children: [
-        Icon(
-          Icons.groups_outlined,
-          size: 48,
-          color: Colors.white.withOpacity(0.5),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Non fai parte di nessuna lega',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 16,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: () => _navigateToJoinLeague(context),
-          icon: const Icon(Icons.add),
-          label: const Text('Unisciti o Crea una Lega'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentOrange,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-// Aggiungi questi metodi di navigazione
-void _navigateToCreateLeague(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const CreateLeagueScreen()),
-  );
-}
-
-void _navigateToJoinLeague(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const JoinLeagueScreen()),
-  );
-}
-
-void _showLeagueManagementDialog(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (context) => Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Gestione Leghe',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Crea nuova lega'),
-            onTap: () {
-              Navigator.pop(context);
-              _navigateToCreateLeague(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.group_add),
-            title: const Text('Unisciti a una lega'),
-            onTap: () {
-              Navigator.pop(context);
-              _navigateToJoinLeague(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.search),
-            title: const Text('Cerca leghe pubbliche'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PublicLeaguesScreen(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-  Widget _buildUserHeader(User user, dynamic userData) {
-    final displayName = user.displayName ?? userData?.displayName ?? 'Utente';
+  // ---------- Header ----------
+  Widget _buildHeader(BuildContext context) {
+    final displayName =
+        user.displayName ?? userData?.displayName ?? 'Utente';
     final email = user.email ?? '';
     final isActive = userData?.isActive ?? true;
+    final initials = displayName.isNotEmpty
+        ? displayName.substring(0, 1).toUpperCase()
+        : '?';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: AppTheme.elevatedCard,
       child: Column(
         children: [
           // Avatar
           Container(
-            width: 100,
-            height: 100,
+            width: 88,
+            height: 88,
             decoration: BoxDecoration(
-              color: isActive ? AppTheme.accentOrange : Colors.grey,
-              borderRadius: BorderRadius.circular(50),
+              color: isActive
+                  ? AppTheme.primaryRed
+                  : AppTheme.surfaceElevated,
+              shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (isActive ? AppTheme.accentOrange : Colors.grey).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: (isActive ? AppTheme.primaryRed : Colors.black)
+                      .withValues(alpha: 0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: Center(
               child: user.photoURL != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(50),
-                    child: Image.network(
-                      user.photoURL!,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Text(
-                          displayName.isNotEmpty 
-                            ? displayName.substring(0, 1).toUpperCase()
-                            : '?',
+                  ? ClipOval(
+                      child: Image.network(
+                        user.photoURL!,
+                        width: 88,
+                        height: 88,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Text(
+                          initials,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      },
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    )
+                  : Text(
+                      initials,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700),
                     ),
-                  )
-                : Text(
-                    displayName.isNotEmpty 
-                      ? displayName.substring(0, 1).toUpperCase()
-                      : '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
             ),
           ),
-          
-          const SizedBox(height: 16),
-          
-          // Nome utente
+
+          const SizedBox(height: AppSpacing.md),
+
           Text(
             displayName,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w700),
           ),
-          
-          const SizedBox(height: 4),
-          
-          // Email
-          Text(
-            email,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 16,
+
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              email,
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 14),
             ),
-          ),
-          
-          const SizedBox(height: 16),
-          
+          ],
+
+          const SizedBox(height: AppSpacing.md),
+
           // Status badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: isActive 
-                ? Colors.green.withOpacity(0.2)
-                : Colors.red.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+              color: (isActive ? AppTheme.successGreen : AppTheme.errorRed)
+                  .withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
               border: Border.all(
-                color: isActive 
-                  ? Colors.green.withOpacity(0.5)
-                  : Colors.red.withOpacity(0.5),
+                color: (isActive ? AppTheme.successGreen : AppTheme.errorRed)
+                    .withValues(alpha: 0.4),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isActive ? Icons.sports_soccer : Icons.cancel,
-                  color: isActive ? Colors.green : Colors.red,
-                  size: 20,
+                  isActive
+                      ? Icons.check_circle_rounded
+                      : Icons.cancel_rounded,
+                  color:
+                      isActive ? AppTheme.successGreen : AppTheme.errorRed,
+                  size: 16,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
-                  isActive ? 'GIOCATORE ATTIVO' : 'ELIMINATO',
+                  isActive ? 'ATTIVO' : 'ELIMINATO',
                   style: TextStyle(
-                    color: isActive ? Colors.green : Colors.red,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    color: isActive
+                        ? AppTheme.successGreen
+                        : AppTheme.errorRed,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -529,321 +270,374 @@ void _showLeagueManagementDialog(BuildContext context) {
     );
   }
 
-
-  Widget _buildProfileActions(BuildContext context) {
-    return Column(
-      children: [
-        // Modifica profilo
-        _buildActionCard(
-          title: 'Modifica Profilo',
-          subtitle: 'Cambia nome utente e foto',
-          icon: Icons.edit,
-          color: AppTheme.accentOrange,
-          onTap: () => _showEditProfileDialog(context),
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Impostazioni privacy
-        _buildActionCard(
-          title: 'Privacy e Sicurezza',
-          subtitle: 'Gestisci le tue impostazioni',
-          icon: Icons.security,
-          color: Colors.blue,
-          onTap: () => _showPrivacyDialog(context),
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Logout
-        _buildActionCard(
-          title: 'Esci',
-          subtitle: 'Disconnetti dal tuo account',
-          icon: Icons.logout,
-          color: Colors.red,
-          onTap: () => _showLogoutDialog(context),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white.withOpacity(0.5),
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppInfo(BuildContext context) {
+  // ---------- Leagues ----------
+  Widget _buildLeaguesSection(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<LastManStandingLeague>> userLeagues,
+    String? selectedLeague,
+  ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: AppTheme.glassCard,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.info_outline,
-                color: Colors.white.withOpacity(0.8),
-                size: 20,
-              ),
-              const SizedBox(width: 12),
+              const Icon(Icons.groups_rounded,
+                  color: Colors.white, size: 22),
+              const SizedBox(width: AppSpacing.sm),
               const Text(
-                'INFORMAZIONI APP',
+                'LE MIE LEGHE',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 1,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          
-          _buildInfoRow('Versione', '1.0.0'),
-          _buildInfoRow('Sviluppatore', 'Last Man Standing Team'),
-          _buildInfoRow('Licenza', 'MIT License'),
+          const SizedBox(height: AppSpacing.md),
+          userLeagues.when(
+            loading: () => const Center(
+              child:
+                  CircularProgressIndicator(color: AppTheme.primaryRed),
+            ),
+            error: (_, __) => Text(
+              'Errore nel caricamento',
+              style: TextStyle(
+                  color: AppTheme.errorRed.withValues(alpha: 0.8)),
+            ),
+            data: (leagues) {
+              if (leagues.isEmpty) {
+                return _noLeagues(context);
+              }
+              return Column(
+                children: [
+                  ...leagues.map((l) => _leagueItem(
+                        context,
+                        ref,
+                        l,
+                        isSelected: l.id == selectedLeague,
+                      )),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const CreateLeagueScreen()),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Crea'),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const JoinLeagueScreen()),
+                          ),
+                          icon: const Icon(Icons.group_add_rounded,
+                              size: 18),
+                          label: const Text('Unisciti'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _leagueItem(
+    BuildContext context,
+    WidgetRef ref,
+    LastManStandingLeague league, {
+    required bool isSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          onTap: () {
+            ref
+                .read(selectedLeagueProvider.notifier)
+                .selectLeague(league.id);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text('Lega "${league.name}" selezionata')),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppTheme.primaryRed.withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: isSelected
+                    ? AppTheme.primaryRed
+                    : Colors.white.withValues(alpha: 0.1),
+                width: isSelected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppTheme.primaryRed
+                        : Colors.white.withValues(alpha: 0.1),
+                    borderRadius:
+                        BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Icon(
+                    league.isPrivate
+                        ? Icons.lock_rounded
+                        : Icons.public_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        league.name,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${league.currentParticipants} partecipanti',
+                        style: TextStyle(
+                          color:
+                              Colors.white.withValues(alpha: 0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.primaryRed,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 14),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _noLeagues(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      child: Column(
+        children: [
+          Icon(Icons.groups_outlined,
+              size: 44, color: Colors.white.withValues(alpha: 0.3)),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Non fai parte di nessuna lega',
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 15),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const JoinLeagueScreen()),
+            ),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Unisciti o Crea una Lega'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- Settings ----------
+  Widget _buildSettings(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: AppTheme.glassCard,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'IMPOSTAZIONI',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Notifications toggle
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.infoBlue.withValues(alpha: 0.15),
+                  borderRadius:
+                      BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(Icons.notifications_rounded,
+                    color: AppTheme.infoBlue, size: 20),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'Notifiche',
+                  style: TextStyle(
+                      color: Colors.white, fontSize: 15),
+                ),
+              ),
+              Switch(value: true, onChanged: (_) {}),
+            ],
+          ),
+
+          Divider(
+            color: Colors.white.withValues(alpha: 0.08),
+            height: AppSpacing.lg,
+          ),
+
+          // About
+          InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            onTap: () => _showAbout(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Icon(Icons.info_outline_rounded,
+                        color: Colors.white.withValues(alpha: 0.6),
+                        size: 20),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  const Expanded(
+                    child: Text(
+                      'Informazioni App',
+                      style: TextStyle(
+                          color: Colors.white, fontSize: 15),
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      size: 16),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- Dialogs ----------
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Conferma'),
+        content: const Text('Sei sicuro di voler uscire?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await FirebaseAuth.instance.signOut();
+            },
+            child: const Text('Esci',
+                style: TextStyle(color: AppTheme.errorRed)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAbout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Last Man Standing'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _aboutRow('Versione', '1.0.0'),
+            _aboutRow('Sviluppatore', 'Last Man Standing Team'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _aboutRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotAuthenticatedView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.login,
-            size: 64,
-            color: Colors.white70,
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Accesso richiesto',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Devi essere autenticato per\naccedere al profilo',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 16,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget(BuildContext context, Object error) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.white70,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Errore nel caricamento',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Impossibile caricare i dati del profilo',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Dialog functions
-  void _showSettingsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Impostazioni'),
-        content: const Text('Funzionalità in sviluppo'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditProfileDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Modifica Profilo'),
-        content: const Text('Funzionalità in sviluppo'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showPrivacyDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Privacy e Sicurezza'),
-        content: const Text('Funzionalità in sviluppo'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Conferma'),
-        content: const Text('Sei sicuro di voler uscire?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-            foregroundColor: Colors.black,
-          ),
-            child: const Text('Annulla'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await FirebaseAuth.instance.signOut();
-            },
-            style: TextButton.styleFrom(
-            foregroundColor: Colors.black,
-          ),
-            child: const Text('Esci'),
-          ),
+          Text(label),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );

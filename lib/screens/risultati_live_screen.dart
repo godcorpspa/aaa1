@@ -10,35 +10,25 @@ class RisultatiLiveScreen extends ConsumerStatefulWidget {
   const RisultatiLiveScreen({super.key});
 
   @override
-  ConsumerState<RisultatiLiveScreen> createState() => _RisultatiLiveScreenState();
+  ConsumerState<RisultatiLiveScreen> createState() =>
+      _RisultatiLiveScreenState();
 }
 
 class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   Timer? _refreshTimer;
   late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
-      duration: const Duration(seconds: 1),
       vsync: this,
+      duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    
-    _pulseAnimation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
-    // Auto refresh ogni 30 secondi per partite live
+
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       ref.invalidate(serieALiveMatchesProvider);
-      ref.invalidate(recentSerieAMatchesProvider);
     });
   }
 
@@ -51,361 +41,43 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
 
   @override
   Widget build(BuildContext context) {
-    final liveMatchesAsync = ref.watch(serieALiveMatchesProvider);
-    final nextMatchdayAsync = ref.watch(nextMatchdayFixturesProvider);
+    final liveAsync = ref.watch(serieALiveMatchesProvider);
+    final nextFixtures = ref.watch(nextMatchdayFixturesProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'RISULTATI LIVE',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              ref.invalidate(serieALiveMatchesProvider);
-              ref.invalidate(nextMatchdayFixturesProvider);
-            },
-          ),
-        ],
-      ),
-      extendBodyBehindAppBar: true,
       body: GradientBackground(
-        child: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(serieALiveMatchesProvider);
-              ref.invalidate(nextMatchdayFixturesProvider);
-            },
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  
-                  // Header
-                  Text(
-                    'SERIE A TIM - RISULTATI',
-                    style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                      color: Colors.white70,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 30),
-                  
-                  // Partite Live o Prossime Partite
-                  _buildMatchesSection(liveMatchesAsync, nextMatchdayAsync),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMatchesSection(AsyncValue<List<Match>> liveMatchesAsync, AsyncValue<List<Match>> nextMatchdayAsync) {
-    return liveMatchesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-      error: (error, stack) => _buildErrorWidget(error),
-      data: (liveMatches) {
-        // Se ci sono partite live, mostra quelle
-        if (liveMatches.isNotEmpty) {
-          return _buildLiveMatchesSection(liveMatches);
-        }
-        
-        // Altrimenti mostra le partite della prossima giornata
-        return nextMatchdayAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
-          error: (error, stack) => _buildErrorWidget(error),
-          data: (nextMatches) => _buildNextMatchdaySection(nextMatches),
-        );
-      },
-    );
-  }
-
-  Widget _buildLiveMatchesSection(List<Match> liveMatches) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.red.shade600, Colors.red.shade400],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Row(
-              children: [
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(_pulseAnimation.value),
-                        shape: BoxShape.circle,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'PARTITE LIVE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Partite live
-          Column(
-            children: liveMatches.map((match) => _buildMatchCard(match)).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNextMatchdaySection(List<Match> matches) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue.shade600, Colors.blue.shade400],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.schedule, color: Colors.white, size: 24),
-                SizedBox(width: 12),
-                Text(
-                  'PROSSIME PARTITE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Partite
-          Column(
-            children: matches.map((match) => _buildMatchCard(match)).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMatchCard(Match match) {
-    Color resultColor;
-    String resultText;
-    bool shouldPulse = false;
-
-    // Determina colore e testo in base allo stato
-    if (match.isLive) {
-      resultColor = Colors.red;
-      resultText = match.displayScore;
-      shouldPulse = true;
-    } else if (match.isFinished) {
-      resultColor = Colors.black;
-      resultText = match.displayScore;
-    } else {
-      resultColor = Colors.grey;
-      resultText = '-';
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          // Squadra casa
-          Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                _buildTeamLogo(match.homeTeam.name, size: 24),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    match.homeTeam.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Risultato
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: resultColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: shouldPulse
-                ? AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Text(
-                        resultText,
-                        style: TextStyle(
-                          color: resultColor.withOpacity(_pulseAnimation.value),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      );
-                    },
-                  )
-                : Text(
-                    resultText,
-                    style: TextStyle(
-                      color: resultColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
-          
-          // Squadra trasferta
-          Expanded(
-            flex: 3,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Text(
-                    match.awayTeam.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.right,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildTeamLogo(match.awayTeam.name, size: 24),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget(Object error) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
-        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.white70,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Errore nel caricamento',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            AppBar(
+              title: const Text('Risultati Live'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
               ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () =>
+                      ref.invalidate(serieALiveMatchesProvider),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Impossibile caricare i dati',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                ref.invalidate(serieALiveMatchesProvider);
-                ref.invalidate(nextMatchdayFixturesProvider);
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Riprova'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentOrange,
-                foregroundColor: Colors.white,
+            Expanded(
+              child: liveAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+                error: (e, _) => Center(
+                  child: Text('Errore: $e',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7))),
+                ),
+                data: (liveMatches) {
+                  if (liveMatches.isEmpty) {
+                    return _buildNoLive(nextFixtures);
+                  }
+                  return _buildLiveList(liveMatches);
+                },
               ),
             ),
           ],
@@ -414,23 +86,285 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
     );
   }
 
-  Widget _buildTeamLogo(String teamName, {double size = 32}) {
+  Widget _buildLiveList(List<Match> matches) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildLiveIndicator(),
+        const SizedBox(height: 16),
+        ...matches.map((m) => _buildLiveMatchCard(m)),
+      ],
+    );
+  }
+
+  Widget _buildLiveIndicator() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (_, __) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryRed
+                .withValues(alpha: 0.1 + _pulseController.value * 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppTheme.primaryRed
+                  .withValues(alpha: 0.3 + _pulseController.value * 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryRed
+                      .withValues(alpha: 0.5 + _pulseController.value * 0.5),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'PARTITE IN CORSO',
+                style: TextStyle(
+                  color: AppTheme.primaryRed,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLiveMatchCard(Match match) {
     return Container(
-      width: size,
-      height: size,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.accentOrange,
-        borderRadius: BorderRadius.circular(size / 2),
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppTheme.primaryRed.withValues(alpha: 0.3),
+        ),
       ),
-      child: Center(
-        child: Text(
-          teamName.substring(0, 1).toUpperCase(),
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: size * 0.4,
+      child: Row(
+        children: [
+          // Home
+          Expanded(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppTheme.surfaceElevated,
+                  child: Text(
+                    match.homeTeam.name.isNotEmpty
+                        ? match.homeTeam.name[0]
+                        : '?',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  match.homeTeam.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Score
+          Column(
+            children: [
+              AnimatedBuilder(
+                animation: _pulseController,
+                builder: (_, __) => Text(
+                  match.displayScore,
+                  style: TextStyle(
+                    color: AppTheme.primaryRed.withValues(
+                        alpha: 0.7 + _pulseController.value * 0.3),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryRed.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  match.statusText,
+                  style: const TextStyle(
+                    color: AppTheme.primaryRed,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Away
+          Expanded(
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppTheme.surfaceElevated,
+                  child: Text(
+                    match.awayTeam.name.isNotEmpty
+                        ? match.awayTeam.name[0]
+                        : '?',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  match.awayTeam.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoLive(AsyncValue<List<Match>> nextFixtures) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: AppTheme.glassCard,
+          child: Column(
+            children: [
+              Icon(Icons.sports_soccer,
+                  size: 48, color: Colors.white.withValues(alpha: 0.3)),
+              const SizedBox(height: 12),
+              const Text(
+                'Nessuna partita in corso',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Aggiornamento automatico ogni 30 secondi',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: 24),
+        const Text(
+          'Prossime Partite',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        nextFixtures.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(
+              child:
+                  CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+            ),
+          ),
+          error: (e, _) => Text('Errore: $e',
+              style:
+                  TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+          data: (matches) {
+            if (matches.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text('Nessuna partita in programma',
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5))),
+              );
+            }
+            return Column(
+              children: matches.map((m) => _buildUpcomingCard(m)).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUpcomingCard(Match match) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(match.homeTeam.name,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600)),
+          ),
+          Container(
+            width: 70,
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'VS',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white54,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(match.awayTeam.name,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
