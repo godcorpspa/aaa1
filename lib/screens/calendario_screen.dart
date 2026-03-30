@@ -4,6 +4,7 @@ import '../providers.dart';
 import '../models/league_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/team_logo.dart';
 
 class CalendarioScreen extends ConsumerWidget {
   const CalendarioScreen({super.key});
@@ -180,83 +181,45 @@ class CalendarioScreen extends ConsumerWidget {
           
           const SizedBox(height: 24),
           
-          // Teams
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildTeamLogo(match.homeTeam.name, size: 48),
-                    const SizedBox(height: 12),
-                    Text(
-                      match.homeTeam.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-              
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'VS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildTeamLogo(match.awayTeam.name, size: 48),
-                    const SizedBox(height: 12),
-                    Text(
-                      match.awayTeam.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          // Teams con loghi reali
+          TeamVsTeam(
+            homeTeamName: match.homeTeam.name,
+            homeTeamLogo: match.homeTeam.logo,
+            awayTeamName: match.awayTeam.name,
+            awayTeamLogo: match.awayTeam.logo,
+            logoSize: 56,
+            teamNameStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
           
           const SizedBox(height: 20),
           
           // Stadio
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.stadium, color: Colors.white70, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  match.venue,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+          if (match.venue.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.stadium, color: Colors.white70, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    match.venue,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -348,12 +311,16 @@ class CalendarioScreen extends ConsumerWidget {
             ),
           ),
           
-          // Squadra casa
+          // Squadra casa con logo reale
           Expanded(
             flex: 3,
             child: Row(
               children: [
-                _buildTeamLogo(match.homeTeam.name, size: 20),
+                TeamLogo(
+                  teamName: match.homeTeam.name,
+                  logoUrl: match.homeTeam.logo,
+                  size: 24,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -387,7 +354,7 @@ class CalendarioScreen extends ConsumerWidget {
             ),
           ),
           
-          // Squadra trasferta
+          // Squadra trasferta con logo reale
           Expanded(
             flex: 3,
             child: Row(
@@ -406,7 +373,11 @@ class CalendarioScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                _buildTeamLogo(match.awayTeam.name, size: 20),
+                TeamLogo(
+                  teamName: match.awayTeam.name,
+                  logoUrl: match.awayTeam.logo,
+                  size: 24,
+                ),
               ],
             ),
           ),
@@ -525,27 +496,6 @@ class CalendarioScreen extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTeamLogo(String teamName, {double size = 32}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppTheme.accentOrange,
-        borderRadius: BorderRadius.circular(size / 2),
-      ),
-      child: Center(
-        child: Text(
-          teamName.substring(0, 1).toUpperCase(),
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: size * 0.4,
-          ),
-        ),
       ),
     );
   }

@@ -3,11 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/matchday.dart';
 import '../models/pick.dart';
 import '../models/user_data.dart';
+import 'football_data_service.dart';
 
 /// Repository per operazioni Firestore con gestione errori migliorata
 class FirestoreRepo {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
+  final FootballDataService _footballService;
   
   // Cache per ridurre le chiamate ripetute
   Matchday? _cachedMatchday;
@@ -17,8 +19,10 @@ class FirestoreRepo {
   FirestoreRepo({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    FootballDataService? footballService,
   }) : _db = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance {
+       _auth = auth ?? FirebaseAuth.instance,
+       _footballService = footballService ?? FootballDataService() {
     // Configura settings per performance
     _db.settings = const Settings(
       persistenceEnabled: true,
@@ -36,54 +40,108 @@ class FirestoreRepo {
         return _cachedMatchday!;
       }
 
+      // Prima prova a caricare da Firestore
       final docRef = _db.collection('matchdays').doc('next');
       final snap = await docRef.get(const GetOptions(source: Source.serverAndCache));
       
-      if (!snap.exists) {
-        // Se non esiste, crea dati mock per testing
-        return _createMockMatchday();
+      if (snap.exists && snap.data() != null) {
+        final matchday = Matchday.fromJson(snap.data()!);
+        
+        // Aggiorna cache
+        _cachedMatchday = matchday;
+        _lastMatchdayFetch = DateTime.now();
+        
+        return matchday;
       }
       
-      final data = snap.data();
-      if (data == null) {
-        return _createMockMatchday();
+      // Se non esiste su Firestore, crea da API reale
+      return await _createMatchdayFromApi();
+      
+    } on FirebaseException catch (e) {
+      print('Firebase error, trying API: ${e.message}');
+      return await _createMatchdayFromApi();
+    } catch (e) {
+      print('Error fetching matchday: $e');
+      return await _createMatchdayFromApi();
+    }
+  }
+
+  /// Crea giornata usando dati reali dall'API Football-Data.org
+  Future<Matchday> _createMatchdayFromApi() async {
+    try {
+      // Ottieni giornata corrente dall'API
+      final currentMatchday = await _footballService.getCurrentMatchday();
+      
+      // Ottieni le partite della giornata corrente
+      final matches = await _footballService.getFixtures(round: currentMatchday);
+      
+      // Trova la prima partita per calcolare la deadline
+      DateTime deadline;
+      DateTime? startDate;
+      DateTime? endDate;
+      
+      if (matches.isNotEmpty) {
+        matches.sort((a, b) => a.date.compareTo(b.date));
+        // Deadline: 1 ora prima della prima partita
+        deadline = matches.first.date.subtract(const Duration(hours: 1));
+        startDate = matches.first.date;
+        endDate = matches.last.date;
+      } else {
+        // Fallback: prossima domenica alle 12:00
+        final now = DateTime.now();
+        DateTime nextSunday = now.add(Duration(days: (DateTime.sunday - now.weekday) % 7));
+        if (nextSunday.isBefore(now) || nextSunday.day == now.day) {
+          nextSunday = nextSunday.add(const Duration(days: 7));
+        }
+        deadline = DateTime(nextSunday.year, nextSunday.month, nextSunday.day, 12, 0);
       }
-      
-      final matchday = Matchday.fromJson(data);
-      
+
+      // Ottieni le squadre dalla classifica per avere la lista completa
+      final standings = await _footballService.getStandings();
+      final teamNames = standings.map((s) => s.team.name).toList();
+
+      final matchday = Matchday(
+        giornata: currentMatchday,
+        deadline: deadline,
+        validTeams: [], // Vuoto = tutte le squadre sono valide
+        type: MatchdayType.normal,
+        status: DateTime.now().isBefore(deadline) 
+            ? MatchdayStatus.active 
+            : MatchdayStatus.closed,
+        startDate: startDate,
+        endDate: endDate,
+        participantsCount: 0, // Sarà aggiornato da Firestore
+        activePlayers: 0, // Sarà aggiornato da Firestore
+      );
+
       // Aggiorna cache
       _cachedMatchday = matchday;
       _lastMatchdayFetch = DateTime.now();
       
       return matchday;
-    } on FirebaseException catch (e) {
-      // Se Firebase non è configurato, usa dati mock
-      print('Firebase error, using mock data: ${e.message}');
-      return _createMockMatchday();
+      
     } catch (e) {
-      print('Error fetching matchday, using mock data: $e');
-      return _createMockMatchday();
+      print('Error creating matchday from API: $e');
+      // Ultimo fallback: crea dati minimi
+      return _createFallbackMatchday();
     }
   }
 
-  /// Crea dati mock per testing
-  Matchday _createMockMatchday() {
+  /// Crea dati di fallback se tutto fallisce
+  Matchday _createFallbackMatchday() {
     final now = DateTime.now();
-    // Prossima deadline: domenica alle 14:00
     DateTime nextDeadline = now.add(Duration(days: (DateTime.sunday - now.weekday) % 7));
     if (nextDeadline.isBefore(now) || nextDeadline.day == now.day) {
       nextDeadline = nextDeadline.add(const Duration(days: 7));
     }
-    nextDeadline = DateTime(nextDeadline.year, nextDeadline.month, nextDeadline.day, 14, 0);
+    nextDeadline = DateTime(nextDeadline.year, nextDeadline.month, nextDeadline.day, 12, 0);
 
     return Matchday(
-      giornata: 15, // Giornata corrente
+      giornata: 1,
       deadline: nextDeadline,
-      validTeams: [], // Nessuna restrizione = tutte le squadre
+      validTeams: [],
       type: MatchdayType.normal,
       status: MatchdayStatus.active,
-      participantsCount: 156,
-      activePlayers: 89,
     );
   }
 
@@ -378,6 +436,7 @@ class FirestoreRepo {
   /// Cleanup per rilasciare risorse
   void dispose() {
     _invalidateCache();
+    _footballService.dispose();
   }
 }
 

@@ -5,6 +5,7 @@ import '../providers.dart';
 import '../models/pick.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/team_logo.dart';
 
 class StoricoScelteScreen extends ConsumerWidget {
   const StoricoScelteScreen({super.key});
@@ -18,6 +19,7 @@ class StoricoScelteScreen extends ConsumerWidget {
     }
 
     final userPicksAsync = ref.watch(userPicksProvider(user.uid));
+    final teamsAsync = ref.watch(serieATeamsProvider); // Per ottenere i loghi
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -52,14 +54,25 @@ class StoricoScelteScreen extends ConsumerWidget {
               child: CircularProgressIndicator(color: Colors.white),
             ),
             error: (error, stack) => _buildErrorState(error),
-            data: (picks) => _buildContent(context, picks),
+            data: (picks) => teamsAsync.when(
+              loading: () => _buildContent(context, picks, {}),
+              error: (_, __) => _buildContent(context, picks, {}),
+              data: (teams) {
+                // Crea mappa nome squadra -> logo URL
+                final teamLogos = <String, String>{};
+                for (final team in teams) {
+                  teamLogos[team.name] = team.logo;
+                }
+                return _buildContent(context, picks, teamLogos);
+              },
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, List<Pick> picks) {
+  Widget _buildContent(BuildContext context, List<Pick> picks, Map<String, String> teamLogos) {
     if (picks.isEmpty) {
       return _buildEmptyState(context);
     }
@@ -82,7 +95,7 @@ class StoricoScelteScreen extends ConsumerWidget {
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: picks.length,
-              itemBuilder: (context, index) => _buildPickCard(picks[index]),
+              itemBuilder: (context, index) => _buildPickCard(picks[index], teamLogos),
             ),
           ),
         ),
@@ -238,7 +251,9 @@ class StoricoScelteScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPickCard(Pick pick) {
+  Widget _buildPickCard(Pick pick, Map<String, String> teamLogos) {
+    final logoUrl = teamLogos[pick.team];
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -253,22 +268,28 @@ class StoricoScelteScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Logo squadra e giornata
+            // Logo squadra reale e giornata
             Column(
               children: [
-                _buildTeamLogo(pick.team),
+                TeamLogo(
+                  teamName: pick.team,
+                  logoUrl: logoUrl,
+                  size: 56,
+                  showBorder: true,
+                  borderColor: _getPickBorderColor(pick),
+                ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppTheme.accentOrange,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'G${pick.giornata}',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -312,18 +333,26 @@ class StoricoScelteScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          pick.resultDescription,
-                          style: TextStyle(
-                            color: _getPickTextColor(pick),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _getPickBorderColor(pick).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            pick.resultDescription,
+                            style: TextStyle(
+                              color: _getPickTextColor(pick),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
-                      if (pick.usedJolly)
+                      if (pick.usedJolly) ...[
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.red.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(12),
@@ -345,6 +374,7 @@ class StoricoScelteScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
+                      ],
                     ],
                   ),
                   
@@ -361,34 +391,6 @@ class StoricoScelteScreen extends ConsumerWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTeamLogo(String teamName) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: AppTheme.accentOrange,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.accentOrange.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          teamName.substring(0, 1).toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
         ),
       ),
     );

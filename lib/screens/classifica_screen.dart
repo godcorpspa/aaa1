@@ -4,6 +4,7 @@ import '../providers.dart';
 import '../models/league_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/team_logo.dart';
 
 class ClassificaScreen extends ConsumerWidget {
   const ClassificaScreen({super.key});
@@ -134,10 +135,14 @@ class ClassificaScreen extends ConsumerWidget {
     Color? backgroundColor;
     
     // Colori per posizioni europee e retrocessione
-    if (standing.position <= 2) {
-      backgroundColor = Colors.green.withOpacity(0.1); // Champions/Europa League
-    } else if (standing.position >= 9) {
-      backgroundColor = Colors.red.withOpacity(0.1); // Zona retrocessione
+    if (standing.position <= 4) {
+      backgroundColor = Colors.green.withOpacity(0.1); // Champions League
+    } else if (standing.position == 5) {
+      backgroundColor = Colors.blue.withOpacity(0.1); // Europa League
+    } else if (standing.position == 6) {
+      backgroundColor = Colors.orange.withOpacity(0.1); // Conference League
+    } else if (standing.position >= 18) {
+      backgroundColor = Colors.red.withOpacity(0.1); // Retrocessione
     }
 
     return Container(
@@ -166,30 +171,18 @@ class ClassificaScreen extends ConsumerWidget {
             ),
           ),
           
-          // Nome squadra
+          // Nome squadra con logo reale
           Expanded(
             flex: 3,
             child: Row(
               children: [
-                // Logo placeholder
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentOrange.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      standing.team.name.substring(0, 1),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
+                // Logo reale della squadra
+                TeamLogo(
+                  teamName: standing.team.name,
+                  logoUrl: standing.team.logo,
+                  size: 28,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     standing.team.name,
@@ -206,9 +199,9 @@ class ClassificaScreen extends ConsumerWidget {
           
           // Statistiche
           SizedBox(width: 30, child: Text('${standing.played}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
-          SizedBox(width: 30, child: Text('${standing.wins}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
-          SizedBox(width: 30, child: Text('${standing.draws}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
-          SizedBox(width: 30, child: Text('${standing.losses}', style: const TextStyle(fontSize: 12), textAlign: TextAlign.center)),
+          SizedBox(width: 30, child: Text('${standing.wins}', style: const TextStyle(fontSize: 12, color: Colors.green), textAlign: TextAlign.center)),
+          SizedBox(width: 30, child: Text('${standing.draws}', style: const TextStyle(fontSize: 12, color: Colors.orange), textAlign: TextAlign.center)),
+          SizedBox(width: 30, child: Text('${standing.losses}', style: const TextStyle(fontSize: 12, color: Colors.red), textAlign: TextAlign.center)),
           
           // Punti
           SizedBox(
@@ -237,8 +230,8 @@ class ClassificaScreen extends ConsumerWidget {
 
   Color _getPositionColor(int position) {
     if (position <= 4) return Colors.green; // Champions League
-    if (position <= 5) return Colors.blue; // Europa League  
-    if (position <= 6) return Colors.orange; // Conference League
+    if (position == 5) return Colors.blue; // Europa League  
+    if (position == 6) return Colors.orange; // Conference League
     if (position >= 18) return Colors.red; // Retrocessione
     return Colors.grey;
   }

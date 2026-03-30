@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'services/firestore_repo.dart';
-import 'services/api_football_service.dart';
+import 'services/football_data_service.dart'; // ← Nuovo import
 import 'models/matchday.dart';
 import 'models/user_data.dart';
 import 'models/pick.dart';
@@ -14,10 +14,9 @@ final repoProvider = Provider<FirestoreRepo>((ref) {
   return FirestoreRepo();
 });
 
-/// Provider per il servizio API Football
-final apiFootballProvider = Provider<ApiFootballService>((ref) {
-  // In sviluppo usa MockApiFootballService, in produzione ApiFootballService
-  return MockApiFootballService(); // Cambia in ApiFootballService() per usare API reali
+/// Provider per il servizio Football-Data.org (REALE, non più mock)
+final footballDataProvider = Provider<FootballDataService>((ref) {
+  return FootballDataService();
 });
 
 /// Provider per lo stato di autenticazione
@@ -77,84 +76,117 @@ final userPicksProvider = StreamProvider.family<List<Pick>, String>((ref, userId
   }
 });
 
-// === PROVIDER SERIE A ===
+// === PROVIDER SERIE A (con dati REALI da Football-Data.org) ===
 
-/// Provider per la classifica Serie A
+/// Provider per la classifica Serie A (DATI REALI)
 final serieAStandingsProvider = FutureProvider<List<LeagueStanding>>((ref) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    return await apiService.getStandings();
+    final service = ref.read(footballDataProvider);
+    return await service.getStandings();
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('serieAStandingsProvider', e, stack);
     rethrow;
   }
 });
 
-/// Provider per le partite live Serie A
+/// Provider per le partite live Serie A (DATI REALI)
 final serieALiveMatchesProvider = FutureProvider<List<Match>>((ref) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    return await apiService.getLiveMatches();
+    final service = ref.read(footballDataProvider);
+    return await service.getLiveMatches();
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('serieALiveMatchesProvider', e, stack);
     rethrow;
   }
 });
 
-/// Provider per la prossima partita Serie A
+/// Provider per la prossima partita Serie A (DATI REALI)
 final nextSerieAMatchProvider = FutureProvider<Match?>((ref) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    return await apiService.getNextMatch();
+    final service = ref.read(footballDataProvider);
+    return await service.getNextMatch();
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('nextSerieAMatchProvider', e, stack);
     rethrow;
   }
 });
 
-/// Provider per i nomi delle squadre Serie A (per dropdown)
+/// Provider per i nomi delle squadre Serie A (DATI REALI)
 final serieATeamNamesProvider = FutureProvider<List<String>>((ref) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    return await apiService.getTeamNames();
+    final service = ref.read(footballDataProvider);
+    return await service.getTeamNames();
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('serieATeamNamesProvider', e, stack);
     rethrow;
   }
 });
 
-/// Provider per le partite di una giornata specifica Serie A
+/// Provider per le partite di una giornata specifica Serie A (DATI REALI)
 final serieAFixturesProvider = FutureProvider.family<List<Match>, int>((ref, round) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    return await apiService.getFixtures(round: round);
+    final service = ref.read(footballDataProvider);
+    return await service.getFixtures(round: round);
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('serieAFixturesProvider', e, stack);
     rethrow;
   }
 });
 
-/// Provider per risultati recenti Serie A
+/// Provider per risultati recenti Serie A (DATI REALI)
 final recentSerieAMatchesProvider = FutureProvider<List<Match>>((ref) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    final now = DateTime.now();
-    final from = now.subtract(const Duration(days: 7));
-    return await apiService.getFixtures(from: from, to: now);
+    final service = ref.read(footballDataProvider);
+    return await service.getRecentResults(limit: 10);
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('recentSerieAMatchesProvider', e, stack);
     rethrow;
   }
 });
 
-/// Provider per partite della prossima giornata
+/// Provider per la giornata corrente (DATI REALI)
+final currentMatchdayProvider = FutureProvider<int>((ref) async {
+  try {
+    final service = ref.read(footballDataProvider);
+    return await service.getCurrentMatchday();
+  } catch (e, stack) {
+    ref.read(errorLoggerProvider).logError('currentMatchdayProvider', e, stack);
+    rethrow;
+  }
+});
+
+/// Provider per partite della prossima giornata (DATI REALI)
 final nextMatchdayFixturesProvider = FutureProvider<List<Match>>((ref) async {
   try {
-    final apiService = ref.read(apiFootballProvider);
-    // Usa round 15 per la prossima giornata (dovrebbe essere dinamico)
-    return await apiService.getFixtures(round: 15);
+    final service = ref.read(footballDataProvider);
+    // Prima ottieni la giornata corrente
+    final currentMatchday = await service.getCurrentMatchday();
+    // Poi carica le partite di quella giornata
+    return await service.getFixtures(round: currentMatchday);
   } catch (e, stack) {
     ref.read(errorLoggerProvider).logError('nextMatchdayFixturesProvider', e, stack);
+    rethrow;
+  }
+});
+
+/// Provider per le prossime partite (DATI REALI)
+final upcomingMatchesProvider = FutureProvider<List<Match>>((ref) async {
+  try {
+    final service = ref.read(footballDataProvider);
+    return await service.getUpcomingMatches(limit: 10);
+  } catch (e, stack) {
+    ref.read(errorLoggerProvider).logError('upcomingMatchesProvider', e, stack);
+    rethrow;
+  }
+});
+
+/// Provider per tutte le squadre Serie A (DATI REALI)
+final serieATeamsProvider = FutureProvider<List<Team>>((ref) async {
+  try {
+    final service = ref.read(footballDataProvider);
+    return await service.getTeams();
+  } catch (e, stack) {
+    ref.read(errorLoggerProvider).logError('serieATeamsProvider', e, stack);
     rethrow;
   }
 });

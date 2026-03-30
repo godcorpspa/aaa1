@@ -9,6 +9,7 @@ import '../providers/league_providers.dart';
 import 'create_league_screen.dart';
 import 'join_league_screen.dart';
 import 'public_leagues_screen.dart';
+import 'notification_settings_screen.dart';
 
 class ProfiloScreen extends ConsumerWidget {
   const ProfiloScreen({super.key});
@@ -32,7 +33,7 @@ class ProfiloScreen extends ConsumerWidget {
           ),
         ),
         centerTitle: true,
-        automaticallyImplyLeading: false, // Rimuove il back button
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.white),
@@ -47,7 +48,7 @@ class ProfiloScreen extends ConsumerWidget {
             child: CircularProgressIndicator(color: Colors.white),
           ),
           error: (error, stack) => _buildErrorWidget(context, error),
-          data: (userData) => _buildContent(context, ref, user, userData), // PASSA ref QUI
+          data: (userData) => _buildContent(context, ref, user, userData),
         ),
       ),
     );
@@ -72,7 +73,7 @@ class ProfiloScreen extends ConsumerWidget {
           
           const SizedBox(height: 32),
           
-          // Sezione Leghe - PASSA ref QUI
+          // Sezione Leghe
           _buildLeaguesSection(context, ref, userLeagues, selectedLeague),
           
           const SizedBox(height: 32),
@@ -89,315 +90,307 @@ class ProfiloScreen extends ConsumerWidget {
     );
   }
 
-// Aggiungi questo nuovo metodo per la sezione leghe
-Widget _buildLeaguesSection(
-  BuildContext context,
-  WidgetRef ref, // AGGIUNGI ref
-  AsyncValue<List<LastManStandingLeague>> userLeagues,
-  String? selectedLeague,
-) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.white.withOpacity(0.2)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.groups, color: Colors.white, size: 24),
-            const SizedBox(width: 12),
-            const Text(
-              'LE MIE LEGHE',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-            const Spacer(),
-            // Pulsante per gestire leghe
-            IconButton(
-              onPressed: () => _showLeagueManagementDialog(context),
-              icon: const Icon(Icons.settings, color: Colors.white70),
-              tooltip: 'Gestisci leghe',
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        userLeagues.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          ),
-          error: (error, stack) => Text(
-            'Errore nel caricamento leghe',
-            style: TextStyle(color: Colors.red.shade300),
-          ),
-          data: (leagues) {
-            if (leagues.isEmpty) {
-              return _buildNoLeaguesWidget(context);
-            }
-            
-            return Column(
-              children: [
-                // Lista delle leghe con selezione
-                ...leagues.map((league) => _buildLeagueItem(
-                  league,
-                  isSelected: league.id == selectedLeague,
-                  onTap: () {
-                    ref.read(selectedLeagueProvider.notifier).selectLeague(league.id);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Lega "${league.name}" selezionata'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
-                )).toList(),
-                
-                const SizedBox(height: 16),
-                
-                // Pulsanti azione
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _navigateToCreateLeague(context),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Crea Lega'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white54),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _navigateToJoinLeague(context),
-                        icon: const Icon(Icons.group_add),
-                        label: const Text('Unisciti'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white54),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildLeagueItem(
-  LastManStandingLeague league,
-  {required bool isSelected, required VoidCallback onTap}
-) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected 
-              ? AppTheme.accentOrange.withOpacity(0.2)
-              : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected 
-                ? AppTheme.accentOrange
-                : Colors.white.withOpacity(0.2),
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Icona lega
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isSelected 
-                    ? AppTheme.accentOrange
-                    : Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  league.isPrivate ? Icons.lock : Icons.public,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              
-              // Info lega
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      league.name,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${league.currentParticipants} partecipanti • ${league.stats.activePlayers} attivi',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Indicatore selezione
-              if (isSelected)
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentOrange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _buildNoLeaguesWidget(BuildContext context) {
-  return Container(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      children: [
-        Icon(
-          Icons.groups_outlined,
-          size: 48,
-          color: Colors.white.withOpacity(0.5),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Non fai parte di nessuna lega',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 16,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: () => _navigateToJoinLeague(context),
-          icon: const Icon(Icons.add),
-          label: const Text('Unisciti o Crea una Lega'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentOrange,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-// Aggiungi questi metodi di navigazione
-void _navigateToCreateLeague(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const CreateLeagueScreen()),
-  );
-}
-
-void _navigateToJoinLeague(BuildContext context) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const JoinLeagueScreen()),
-  );
-}
-
-void _showLeagueManagementDialog(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (context) => Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+  Widget _buildLeaguesSection(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<LastManStandingLeague>> userLeagues,
+    String? selectedLeague,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Gestione Leghe',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Crea nuova lega'),
-            onTap: () {
-              Navigator.pop(context);
-              _navigateToCreateLeague(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.group_add),
-            title: const Text('Unisciti a una lega'),
-            onTap: () {
-              Navigator.pop(context);
-              _navigateToJoinLeague(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.search),
-            title: const Text('Cerca leghe pubbliche'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PublicLeaguesScreen(),
+          Row(
+            children: [
+              const Icon(Icons.groups, color: Colors.white, size: 24),
+              const SizedBox(width: 12),
+              const Text(
+                'LE MIE LEGHE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
                 ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: () => _showLeagueManagementDialog(context),
+                icon: const Icon(Icons.settings, color: Colors.white70),
+                tooltip: 'Gestisci leghe',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          userLeagues.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            error: (error, stack) => Text(
+              'Errore nel caricamento leghe',
+              style: TextStyle(color: Colors.red.shade300),
+            ),
+            data: (leagues) {
+              if (leagues.isEmpty) {
+                return _buildNoLeaguesWidget(context);
+              }
+              
+              return Column(
+                children: [
+                  ...leagues.map((league) => _buildLeagueItem(
+                    league,
+                    isSelected: league.id == selectedLeague,
+                    onTap: () {
+                      ref.read(selectedLeagueProvider.notifier).selectLeague(league.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Lega "${league.name}" selezionata'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                  )).toList(),
+                  
+                  const SizedBox(height: 16),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _navigateToCreateLeague(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Crea Lega'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _navigateToJoinLeague(context),
+                          icon: const Icon(Icons.group_add),
+                          label: const Text('Unisciti'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               );
             },
           ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildLeagueItem(
+    LastManStandingLeague league,
+    {required bool isSelected, required VoidCallback onTap}
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isSelected 
+                ? AppTheme.accentOrange.withOpacity(0.2)
+                : Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected 
+                  ? AppTheme.accentOrange
+                  : Colors.white.withOpacity(0.2),
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                      ? AppTheme.accentOrange
+                      : Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    league.isPrivate ? Icons.lock : Icons.public,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        league.name,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${league.currentParticipants} partecipanti • ${league.stats.activePlayers} attivi',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentOrange,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoLeaguesWidget(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Icon(
+            Icons.groups_outlined,
+            size: 48,
+            color: Colors.white.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Non fai parte di nessuna lega',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 16,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _navigateToJoinLeague(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Unisciti o Crea una Lega'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentOrange,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToCreateLeague(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CreateLeagueScreen()),
+    );
+  }
+
+  void _navigateToJoinLeague(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const JoinLeagueScreen()),
+    );
+  }
+
+  void _showLeagueManagementDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Gestione Leghe',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: const Icon(Icons.add_circle_outline),
+              title: const Text('Crea nuova lega'),
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToCreateLeague(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_add),
+              title: const Text('Unisciti a una lega'),
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToJoinLeague(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.search),
+              title: const Text('Cerca leghe pubbliche'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PublicLeaguesScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildUserHeader(User user, dynamic userData) {
     final displayName = user.displayName ?? userData?.displayName ?? 'Utente';
@@ -467,7 +460,6 @@ void _showLeagueManagementDialog(BuildContext context) {
           
           const SizedBox(height: 16),
           
-          // Nome utente
           Text(
             displayName,
             style: const TextStyle(
@@ -479,7 +471,6 @@ void _showLeagueManagementDialog(BuildContext context) {
           
           const SizedBox(height: 4),
           
-          // Email
           Text(
             email,
             style: TextStyle(
@@ -490,7 +481,6 @@ void _showLeagueManagementDialog(BuildContext context) {
           
           const SizedBox(height: 16),
           
-          // Status badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -529,11 +519,23 @@ void _showLeagueManagementDialog(BuildContext context) {
     );
   }
 
-
   Widget _buildProfileActions(BuildContext context) {
     return Column(
       children: [
-        // Modifica profilo
+        // Notifiche - NUOVO
+        _buildActionCard(
+          title: 'Notifiche',
+          subtitle: 'Gestisci le tue notifiche',
+          icon: Icons.notifications,
+          color: Colors.blue,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
         _buildActionCard(
           title: 'Modifica Profilo',
           subtitle: 'Cambia nome utente e foto',
@@ -544,18 +546,16 @@ void _showLeagueManagementDialog(BuildContext context) {
         
         const SizedBox(height: 12),
         
-        // Impostazioni privacy
         _buildActionCard(
           title: 'Privacy e Sicurezza',
           subtitle: 'Gestisci le tue impostazioni',
           icon: Icons.security,
-          color: Colors.blue,
+          color: Colors.purple,
           onTap: () => _showPrivacyDialog(context),
         ),
         
         const SizedBox(height: 12),
         
-        // Logout
         _buildActionCard(
           title: 'Esci',
           subtitle: 'Disconnetti dal tuo account',
@@ -664,7 +664,7 @@ void _showLeagueManagementDialog(BuildContext context) {
           
           _buildInfoRow('Versione', '1.0.0'),
           _buildInfoRow('Sviluppatore', 'Last Man Standing Team'),
-          _buildInfoRow('Licenza', 'MIT License'),
+          _buildInfoRow('API', 'Football-Data.org'),
         ],
       ),
     );
@@ -771,19 +771,66 @@ void _showLeagueManagementDialog(BuildContext context) {
     );
   }
 
-  // Dialog functions
   void _showSettingsDialog(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Impostazioni'),
-        content: const Text('Funzionalità in sviluppo'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Impostazioni',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ListTile(
+              leading: const Icon(Icons.notifications, color: Colors.blue),
+              title: const Text('Notifiche'),
+              subtitle: const Text('Gestisci le notifiche push'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.palette, color: Colors.purple),
+              title: const Text('Tema'),
+              subtitle: const Text('Personalizza l\'aspetto'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Funzionalità in arrivo!')),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.language, color: Colors.green),
+              title: const Text('Lingua'),
+              subtitle: const Text('Italiano'),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Funzionalità in arrivo!')),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -829,19 +876,18 @@ void _showLeagueManagementDialog(BuildContext context) {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-            foregroundColor: Colors.black,
-          ),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
             child: const Text('Annulla'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await FirebaseAuth.instance.signOut();
             },
-            style: TextButton.styleFrom(
-            foregroundColor: Colors.black,
-          ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Esci'),
           ),
         ],

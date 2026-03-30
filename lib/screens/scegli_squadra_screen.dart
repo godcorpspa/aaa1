@@ -7,6 +7,8 @@ import '../models/league_models.dart';
 import '../models/pick.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/team_logo.dart';
+import '../services/notification_service.dart';
 
 class ScegliScreen extends ConsumerStatefulWidget {
   const ScegliScreen({super.key});
@@ -19,7 +21,7 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
     with TickerProviderStateMixin {
   Timer? _timer;
   Duration _timeToNext = Duration.zero;
-  String? _selectedTeam;
+  Team? _selectedTeam; // Ora salviamo l'intero oggetto Team
   
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -65,13 +67,17 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
   @override
   Widget build(BuildContext context) {
     final matchStatusAsync = ref.watch(serieAMatchStatusProvider);
-    final teamNamesAsync = ref.watch(serieATeamNamesProvider);
+    final teamsAsync = ref.watch(serieATeamsProvider); // Usa il provider che ritorna Team completi
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           'SCEGLI',
           style: TextStyle(
@@ -86,7 +92,7 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
               ref.invalidate(serieAMatchStatusProvider);
-              ref.invalidate(serieATeamNamesProvider);
+              ref.invalidate(serieATeamsProvider);
             },
           ),
         ],
@@ -99,14 +105,14 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
               child: CircularProgressIndicator(color: Colors.white),
             ),
             error: (error, stack) => _buildErrorWidget(context, error),
-            data: (matchStatus) => _buildContent(context, matchStatus, teamNamesAsync),
+            data: (matchStatus) => _buildContent(context, matchStatus, teamsAsync),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, SerieAMatchStatus matchStatus, AsyncValue<List<String>> teamNamesAsync) {
+  Widget _buildContent(BuildContext context, SerieAMatchStatus matchStatus, AsyncValue<List<Team>> teamsAsync) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -133,7 +139,7 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
           ],
           
           // Countdown e selezione squadra
-          _buildNextMatchSection(matchStatus.nextMatch, teamNamesAsync),
+          _buildNextMatchSection(matchStatus.nextMatch, teamsAsync),
           
           const SizedBox(height: 30),
           
@@ -210,11 +216,15 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
       ),
       child: Row(
         children: [
-          // Squadra casa
+          // Squadra casa con logo
           Expanded(
             child: Column(
               children: [
-                _buildTeamLogo(match.homeTeam.name),
+                TeamLogo(
+                  teamName: match.homeTeam.name,
+                  logoUrl: match.homeTeam.logo,
+                  size: 40,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   match.homeTeam.name,
@@ -264,11 +274,15 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
             ),
           ),
           
-          // Squadra trasferta
+          // Squadra trasferta con logo
           Expanded(
             child: Column(
               children: [
-                _buildTeamLogo(match.awayTeam.name),
+                TeamLogo(
+                  teamName: match.awayTeam.name,
+                  logoUrl: match.awayTeam.logo,
+                  size: 40,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   match.awayTeam.name,
@@ -289,7 +303,7 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
     );
   }
 
-  Widget _buildNextMatchSection(Match? nextMatch, AsyncValue<List<String>> teamNamesAsync) {
+  Widget _buildNextMatchSection(Match? nextMatch, AsyncValue<List<Team>> teamsAsync) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -321,55 +335,18 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
             ),
             const SizedBox(height: 12),
             
-            // Teams
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildTeamLogo(nextMatch.homeTeam.name),
-                      const SizedBox(height: 8),
-                      Text(
-                        nextMatch.homeTeam.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'VS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildTeamLogo(nextMatch.awayTeam.name),
-                      const SizedBox(height: 8),
-                      Text(
-                        nextMatch.awayTeam.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            // Teams con loghi reali
+            TeamVsTeam(
+              homeTeamName: nextMatch.homeTeam.name,
+              homeTeamLogo: nextMatch.homeTeam.logo,
+              awayTeamName: nextMatch.awayTeam.name,
+              awayTeamLogo: nextMatch.awayTeam.logo,
+              logoSize: 48,
+              teamNameStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
             
             const SizedBox(height: 20),
@@ -380,8 +357,8 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
             const SizedBox(height: 24),
           ],
           
-          // Team Selection
-          _buildTeamSelection(teamNamesAsync),
+          // Team Selection con loghi
+          _buildTeamSelection(teamsAsync),
         ],
       ),
     );
@@ -459,7 +436,7 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
     );
   }
 
-  Widget _buildTeamSelection(AsyncValue<List<String>> teamNamesAsync) {
+  Widget _buildTeamSelection(AsyncValue<List<Team>> teamsAsync) {
     return Column(
       children: [
         const Divider(color: Colors.white24),
@@ -477,7 +454,7 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
         
         const SizedBox(height: 16),
         
-        teamNamesAsync.when(
+        teamsAsync.when(
           loading: () => const CircularProgressIndicator(
             color: Colors.white,
             strokeWidth: 2,
@@ -486,63 +463,115 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
             'Errore nel caricamento squadre',
             style: TextStyle(color: Colors.red.shade300),
           ),
-          data: (teamNames) => Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedTeam,
-                hint: const Text(
-                  'Seleziona una squadra',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                dropdownColor: AppTheme.primaryRed,
-                style: const TextStyle(color: Colors.white),
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                isExpanded: true,
-                items: teamNames.map((team) => DropdownMenuItem(
-                  value: team,
-                  child: Row(
-                    children: [
-                      _buildTeamLogo(team, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          team,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
+          data: (teams) => Column(
+            children: [
+              // Pulsante per aprire il selettore squadre
+              InkWell(
+                onTap: () => _showTeamPickerDialog(context, teams),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _selectedTeam != null 
+                          ? AppTheme.accentOrange 
+                          : Colors.white.withOpacity(0.3),
+                      width: _selectedTeam != null ? 2 : 1,
+                    ),
                   ),
-                )).toList(),
-                onChanged: (team) => setState(() => _selectedTeam = team),
+                  child: _selectedTeam != null
+                      ? Row(
+                          children: [
+                            TeamLogo(
+                              teamName: _selectedTeam!.name,
+                              logoUrl: _selectedTeam!.logo,
+                              size: 40,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Squadra selezionata',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    _selectedTeam!.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.edit, color: Colors.white70),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.sports_soccer, color: Colors.white.withOpacity(0.7)),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Tocca per selezionare una squadra',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
               ),
-            ),
+              
+              if (_selectedTeam != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _confirmTeamSelection(),
+                    icon: const Icon(Icons.check),
+                    label: Text('Conferma: ${_selectedTeam!.name}'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentOrange,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        
-        if (_selectedTeam != null) ...[
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _confirmTeamSelection(),
-              icon: const Icon(Icons.check),
-              label: Text('Conferma: $_selectedTeam'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentOrange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ],
       ],
+    );
+  }
+
+  void _showTeamPickerDialog(BuildContext context, List<Team> teams) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _TeamPickerBottomSheet(
+        teams: teams,
+        selectedTeam: _selectedTeam,
+        onTeamSelected: (team) {
+          setState(() => _selectedTeam = team);
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
@@ -596,49 +625,53 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
     );
   }
 
-  Widget _buildTeamLogo(String teamName, {double size = 32}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppTheme.accentOrange,
-        borderRadius: BorderRadius.circular(size / 2),
-      ),
-      child: Center(
-        child: Text(
-          teamName.substring(0, 1).toUpperCase(),
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: size * 0.4,
-          ),
-        ),
-      ),
-    );
-  }
-
   void _confirmTeamSelection() {
     if (_selectedTeam == null) return;
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Conferma Scelta'),
-        content: Text(
-          'Hai scelto $_selectedTeam per la prossima giornata.\n\nVuoi confermare?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TeamLogo(
+              teamName: _selectedTeam!.name,
+              logoUrl: _selectedTeam!.logo,
+              size: 80,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Hai scelto ${_selectedTeam!.name} per la prossima giornata.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Vuoi confermare?',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: Colors.black),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
             child: const Text('Annulla'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _saveTeamChoice();
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentOrange,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Conferma'),
           ),
         ],
@@ -668,18 +701,38 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
           // Crea la scelta
           final pick = Pick(
             giornata: matchday.giornata,
-            team: _selectedTeam!,
+            team: _selectedTeam!.name,
             usedJolly: false,
           );
 
           // Salva tramite repository
           await ref.read(repoProvider).submitPick(user.uid, pick);
 
+          // Iscrivi alle notifiche per questa squadra
+          try {
+            await NotificationService().subscribeToTeam(_selectedTeam!.name);
+          } catch (e) {
+            print('Errore iscrizione notifiche: $e');
+          }
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('✅ Scelta salvata: $_selectedTeam (Giornata ${matchday.giornata})'),
+                content: Row(
+                  children: [
+                    TeamLogo(
+                      teamName: _selectedTeam!.name,
+                      logoUrl: _selectedTeam!.logo,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text('✅ Scelta salvata: ${_selectedTeam!.name} (Giornata ${matchday.giornata})'),
+                    ),
+                  ],
+                ),
                 backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
               ),
             );
             setState(() => _selectedTeam = null);
@@ -762,6 +815,168 @@ class _ScegliScreenState extends ConsumerState<ScegliScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet per selezionare la squadra con loghi
+class _TeamPickerBottomSheet extends StatefulWidget {
+  final List<Team> teams;
+  final Team? selectedTeam;
+  final Function(Team) onTeamSelected;
+
+  const _TeamPickerBottomSheet({
+    required this.teams,
+    this.selectedTeam,
+    required this.onTeamSelected,
+  });
+
+  @override
+  State<_TeamPickerBottomSheet> createState() => _TeamPickerBottomSheetState();
+}
+
+class _TeamPickerBottomSheetState extends State<_TeamPickerBottomSheet> {
+  String _searchQuery = '';
+  
+  List<Team> get _filteredTeams {
+    if (_searchQuery.isEmpty) return widget.teams;
+    return widget.teams
+        .where((t) => t.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                const Text(
+                  'Seleziona Squadra',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Search bar
+                TextField(
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  decoration: InputDecoration(
+                    hintText: 'Cerca squadra...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Lista squadre
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _filteredTeams.length,
+              itemBuilder: (context, index) {
+                final team = _filteredTeams[index];
+                final isSelected = widget.selectedTeam?.id == team.id;
+                
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => widget.onTeamSelected(team),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isSelected 
+                              ? AppTheme.accentOrange.withOpacity(0.1)
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected 
+                                ? AppTheme.accentOrange 
+                                : Colors.grey.shade200,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            TeamLogo(
+                              teamName: team.name,
+                              logoUrl: team.logo,
+                              size: 48,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                team.name,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? AppTheme.accentOrange : Colors.black87,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.accentOrange,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

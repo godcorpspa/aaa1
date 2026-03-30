@@ -5,6 +5,7 @@ import '../providers.dart';
 import '../models/league_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/team_logo.dart';
 
 class RisultatiLiveScreen extends ConsumerStatefulWidget {
   const RisultatiLiveScreen({super.key});
@@ -145,7 +146,7 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.red.withOpacity(0.3), width: 2),
       ),
       child: Column(
         children: [
@@ -159,8 +160,8 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
                 end: Alignment.bottomRight,
               ),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
               ),
             ),
             child: Row(
@@ -174,6 +175,13 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(_pulseAnimation.value),
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(_pulseAnimation.value * 0.5),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -188,13 +196,160 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
                     letterSpacing: 1,
                   ),
                 ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${liveMatches.length} in corso',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           
           // Partite live
           Column(
-            children: liveMatches.map((match) => _buildMatchCard(match)).toList(),
+            children: liveMatches.map((match) => _buildLiveMatchCard(match)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveMatchCard(Match match) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          // Status badge
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(_pulseAnimation.value * 0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.red.withOpacity(0.5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      match.statusText,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Teams con loghi e risultato
+          Row(
+            children: [
+              // Squadra casa
+              Expanded(
+                child: Column(
+                  children: [
+                    TeamLogo(
+                      teamName: match.homeTeam.name,
+                      logoUrl: match.homeTeam.logo,
+                      size: 56,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      match.homeTeam.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Risultato
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Text(
+                      match.displayScore,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7 + _pulseAnimation.value * 0.3),
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              // Squadra trasferta
+              Expanded(
+                child: Column(
+                  children: [
+                    TeamLogo(
+                      teamName: match.awayTeam.name,
+                      logoUrl: match.awayTeam.logo,
+                      size: 56,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      match.awayTeam.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -221,15 +376,15 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
                 end: Alignment.bottomRight,
               ),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.schedule, color: Colors.white, size: 24),
-                SizedBox(width: 12),
-                Text(
+                const Icon(Icons.schedule, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                const Text(
                   'PROSSIME PARTITE',
                   style: TextStyle(
                     color: Colors.white,
@@ -238,36 +393,64 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
                     letterSpacing: 1,
                   ),
                 ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${matches.length} partite',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Info no live
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.amber.shade300, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Nessuna partita in corso. Ecco le prossime partite in programma.',
+                    style: TextStyle(
+                      color: Colors.amber.shade300,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           
           // Partite
           Column(
-            children: matches.map((match) => _buildMatchCard(match)).toList(),
+            children: matches.map((match) => _buildNextMatchCard(match)).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMatchCard(Match match) {
-    Color resultColor;
-    String resultText;
-    bool shouldPulse = false;
-
-    // Determina colore e testo in base allo stato
-    if (match.isLive) {
-      resultColor = Colors.red;
-      resultText = match.displayScore;
-      shouldPulse = true;
-    } else if (match.isFinished) {
-      resultColor = Colors.black;
-      resultText = match.displayScore;
-    } else {
-      resultColor = Colors.grey;
-      resultText = '-';
-    }
+  Widget _buildNextMatchCard(Match match) {
+    final dateFormat = '${_getDayName(match.date.weekday)} ${match.date.day}/${match.date.month}';
+    final timeFormat = '${match.date.hour.toString().padLeft(2, '0')}:${match.date.minute.toString().padLeft(2, '0')}';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -278,12 +461,16 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
       ),
       child: Row(
         children: [
-          // Squadra casa
+          // Squadra casa con logo
           Expanded(
             flex: 3,
             child: Row(
               children: [
-                _buildTeamLogo(match.homeTeam.name, size: 24),
+                TeamLogo(
+                  teamName: match.homeTeam.name,
+                  logoUrl: match.homeTeam.logo,
+                  size: 32,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -300,38 +487,36 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
             ),
           ),
           
-          // Risultato
+          // Data e ora
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: resultColor.withOpacity(0.2),
+              color: AppTheme.accentOrange.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: shouldPulse
-                ? AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Text(
-                        resultText,
-                        style: TextStyle(
-                          color: resultColor.withOpacity(_pulseAnimation.value),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      );
-                    },
-                  )
-                : Text(
-                    resultText,
-                    style: TextStyle(
-                      color: resultColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+            child: Column(
+              children: [
+                Text(
+                  dateFormat,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
                   ),
+                ),
+                Text(
+                  timeFormat,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
           
-          // Squadra trasferta
+          // Squadra trasferta con logo
           Expanded(
             flex: 3,
             child: Row(
@@ -350,7 +535,11 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-                _buildTeamLogo(match.awayTeam.name, size: 24),
+                TeamLogo(
+                  teamName: match.awayTeam.name,
+                  logoUrl: match.awayTeam.logo,
+                  size: 32,
+                ),
               ],
             ),
           ),
@@ -414,24 +603,16 @@ class _RisultatiLiveScreenState extends ConsumerState<RisultatiLiveScreen>
     );
   }
 
-  Widget _buildTeamLogo(String teamName, {double size = 32}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppTheme.accentOrange,
-        borderRadius: BorderRadius.circular(size / 2),
-      ),
-      child: Center(
-        child: Text(
-          teamName.substring(0, 1).toUpperCase(),
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: size * 0.4,
-          ),
-        ),
-      ),
-    );
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Lun';
+      case 2: return 'Mar';
+      case 3: return 'Mer';
+      case 4: return 'Gio';
+      case 5: return 'Ven';
+      case 6: return 'Sab';
+      case 7: return 'Dom';
+      default: return '';
+    }
   }
 }

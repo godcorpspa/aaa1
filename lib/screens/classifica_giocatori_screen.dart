@@ -169,7 +169,9 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
               Expanded(
                 child: _buildStatItem(
                   label: 'Tasso sopravv.',
-                  value: '${((giocatoriAttivi / classifica.length) * 100).toStringAsFixed(1)}%',
+                  value: classifica.isNotEmpty 
+                      ? '${((giocatoriAttivi / classifica.length) * 100).toStringAsFixed(1)}%'
+                      : '0%',
                   icon: Icons.trending_up,
                   color: Colors.blue,
                 ),
@@ -308,32 +310,63 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
 
     return Column(
       children: [
-        // Avatar giocatore
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: player.isActive ? AppTheme.accentOrange : Colors.grey,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: medalColor, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: medalColor.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+        // Avatar giocatore migliorato
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                gradient: player.isActive 
+                    ? LinearGradient(
+                        colors: [AppTheme.accentOrange, AppTheme.accentOrange.withOpacity(0.7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: player.isActive ? null : Colors.grey,
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(color: medalColor, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: medalColor.withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              player.displayName.substring(0, 1).toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+              child: Center(
+                child: Text(
+                  player.displayName.isNotEmpty 
+                      ? player.displayName.substring(0, 1).toUpperCase()
+                      : '?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-          ),
+            // Badge posizione
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: medalColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Text(
+                '$position',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
         
         const SizedBox(height: 8),
@@ -343,7 +376,7 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
           player.displayName,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.bold,
             decoration: player.isActive ? null : TextDecoration.lineThrough,
           ),
@@ -354,14 +387,23 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
         
         const SizedBox(height: 4),
         
-        // Vittorie
-        Text(
-          '${player.totalWins} vittorie',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
-            fontSize: 10,
-          ),
-          textAlign: TextAlign.center,
+        // Vittorie con icona
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.emoji_events, color: Colors.white.withOpacity(0.9), size: 14),
+            const SizedBox(width: 4),
+            Text(
+              '${player.totalWins}',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
         
         const SizedBox(height: 8),
@@ -385,15 +427,6 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
                 medalIcon,
                 color: medalColor,
                 size: 32,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$position°',
-                style: TextStyle(
-                  color: medalColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ],
           ),
@@ -446,15 +479,20 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
             
             const SizedBox(width: 16),
             
-            // Avatar giocatore
+            // Avatar giocatore migliorato
             Container(
-              width: 48,
-              height: 48,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: isEliminated 
-                  ? Colors.grey.withOpacity(0.5)
-                  : AppTheme.accentOrange,
-                borderRadius: BorderRadius.circular(24),
+                gradient: isEliminated 
+                    ? null
+                    : LinearGradient(
+                        colors: [AppTheme.accentOrange, AppTheme.accentOrange.withOpacity(0.7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                color: isEliminated ? Colors.grey.withOpacity(0.5) : null,
+                borderRadius: BorderRadius.circular(26),
                 boxShadow: isEliminated ? null : [
                   BoxShadow(
                     color: AppTheme.accentOrange.withOpacity(0.3),
@@ -465,10 +503,12 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  player.displayName.substring(0, 1).toUpperCase(),
+                  player.displayName.isNotEmpty 
+                      ? player.displayName.substring(0, 1).toUpperCase()
+                      : '?',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     decoration: isEliminated ? TextDecoration.lineThrough : null,
                   ),
@@ -516,43 +556,19 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: isEliminated 
-                          ? Colors.white.withOpacity(0.3)
-                          : Colors.green,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${player.totalWins} vittorie',
-                        style: TextStyle(
-                          color: isEliminated 
-                            ? Colors.white.withOpacity(0.5)
-                            : Colors.white70,
-                          fontSize: 14,
-                        ),
+                      _buildPlayerStat(
+                        icon: Icons.emoji_events,
+                        value: '${player.totalWins}',
+                        color: isEliminated ? Colors.white.withOpacity(0.3) : Colors.amber,
                       ),
                       const SizedBox(width: 16),
-                      Icon(
-                        Icons.local_fire_department,
-                        color: isEliminated 
-                          ? Colors.white.withOpacity(0.3)
-                          : Colors.orange,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Streak: ${player.currentStreak}',
-                        style: TextStyle(
-                          color: isEliminated 
-                            ? Colors.white.withOpacity(0.5)
-                            : Colors.white70,
-                          fontSize: 14,
-                        ),
+                      _buildPlayerStat(
+                        icon: Icons.local_fire_department,
+                        value: '${player.currentStreak}',
+                        color: isEliminated ? Colors.white.withOpacity(0.3) : Colors.orange,
                       ),
                     ],
                   ),
@@ -597,6 +613,28 @@ class ClassificaGiocatoriScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPlayerStat({
+    required IconData icon,
+    required String value,
+    required Color color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 
