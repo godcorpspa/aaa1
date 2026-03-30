@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'services/firestore_repo.dart';
-import 'services/api_football_service.dart';
+import 'services/football_data_service.dart';
 import 'models/matchday.dart';
 import 'models/user_data.dart';
 import 'models/pick.dart';
@@ -11,8 +11,9 @@ import 'models/league_models.dart';
 
 final repoProvider = Provider<FirestoreRepo>((ref) => FirestoreRepo());
 
-final apiFootballProvider = Provider<ApiFootballService>((ref) {
-  return ApiFootballService();
+/// Provider per il servizio Football-Data.org (dati reali Serie A)
+final footballDataProvider = Provider<FootballDataService>((ref) {
+  return FootballDataService();
 });
 
 final authProvider = StreamProvider<User?>((ref) {
@@ -45,47 +46,63 @@ final userPicksProvider =
   return repo.streamUserPicks(userId);
 });
 
-// === SERIE A PROVIDERS ===
+// === SERIE A PROVIDERS (dati reali da Football-Data.org) ===
 
 final serieAStandingsProvider =
     FutureProvider<List<LeagueStanding>>((ref) async {
-  final api = ref.read(apiFootballProvider);
-  return await api.getStandings();
+  final service = ref.read(footballDataProvider);
+  return await service.getStandings();
 });
 
 final serieALiveMatchesProvider = FutureProvider<List<Match>>((ref) async {
-  final api = ref.read(apiFootballProvider);
-  return await api.getLiveMatches();
+  final service = ref.read(footballDataProvider);
+  return await service.getLiveMatches();
 });
 
 final nextSerieAMatchProvider = FutureProvider<Match?>((ref) async {
-  final api = ref.read(apiFootballProvider);
-  return await api.getNextMatch();
+  final service = ref.read(footballDataProvider);
+  return await service.getNextMatch();
 });
 
 final serieATeamNamesProvider = FutureProvider<List<String>>((ref) async {
-  final api = ref.read(apiFootballProvider);
-  return await api.getTeamNames();
+  final service = ref.read(footballDataProvider);
+  return await service.getTeamNames();
 });
 
 final serieAFixturesProvider =
     FutureProvider.family<List<Match>, int>((ref, round) async {
-  final api = ref.read(apiFootballProvider);
-  return await api.getFixtures(round: round);
+  final service = ref.read(footballDataProvider);
+  return await service.getFixtures(round: round);
 });
 
 final recentSerieAMatchesProvider = FutureProvider<List<Match>>((ref) async {
-  final api = ref.read(apiFootballProvider);
-  final now = DateTime.now();
-  final from = now.subtract(const Duration(days: 7));
-  return await api.getFixtures(from: from, to: now);
+  final service = ref.read(footballDataProvider);
+  return await service.getRecentResults(limit: 10);
 });
 
-/// Dynamically fetches fixtures for the current matchday
+/// Provider per la giornata corrente (dati reali)
+final currentMatchdayProvider = FutureProvider<int>((ref) async {
+  final service = ref.read(footballDataProvider);
+  return await service.getCurrentMatchday();
+});
+
+/// Provider per partite della prossima giornata (dati reali)
 final nextMatchdayFixturesProvider = FutureProvider<List<Match>>((ref) async {
-  final api = ref.read(apiFootballProvider);
-  final matchday = await ref.watch(matchdayProvider.future);
-  return await api.getFixtures(round: matchday.giornata);
+  final service = ref.read(footballDataProvider);
+  final currentMatchday = await service.getCurrentMatchday();
+  return await service.getFixtures(round: currentMatchday);
+});
+
+/// Provider per le prossime partite (dati reali)
+final upcomingMatchesProvider = FutureProvider<List<Match>>((ref) async {
+  final service = ref.read(footballDataProvider);
+  return await service.getUpcomingMatches(limit: 10);
+});
+
+/// Provider per tutte le squadre Serie A (dati reali)
+final serieATeamsProvider = FutureProvider<List<Team>>((ref) async {
+  final service = ref.read(footballDataProvider);
+  return await service.getTeams();
 });
 
 // === COMBINED PROVIDERS ===

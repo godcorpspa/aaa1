@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/matchday.dart';
 import '../models/pick.dart';
 import '../models/user_data.dart';
+import 'football_data_service.dart';
 
 class FirestoreRepo {
   final FirebaseFirestore _db;
   final FirebaseAuth _auth;
+  final FootballDataService _footballService;
 
   Matchday? _cachedMatchday;
   DateTime? _lastMatchdayFetch;
@@ -15,8 +17,10 @@ class FirestoreRepo {
   FirestoreRepo({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    FootballDataService? footballService,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _footballService = footballService ?? FootballDataService();
 
   Future<Matchday> fetchNextMatchday() async {
     if (_cachedMatchday != null &&
@@ -25,19 +29,69 @@ class FirestoreRepo {
       return _cachedMatchday!;
     }
 
-    final snap = await _db
-        .collection('matchdays')
-        .doc('next')
-        .get(const GetOptions(source: Source.serverAndCache));
+    // Prima prova da Firestore
+    try {
+      final snap = await _db
+          .collection('matchdays')
+          .doc('next')
+          .get(const GetOptions(source: Source.serverAndCache));
 
-    if (!snap.exists || snap.data() == null) {
-      throw const MatchdayNotFoundException();
+      if (snap.exists && snap.data() != null) {
+        final matchday = Matchday.fromJson(snap.data()!);
+        _cachedMatchday = matchday;
+        _lastMatchdayFetch = DateTime.now();
+        return matchday;
+      }
+    } catch (_) {
+      // Fallback all'API se Firestore fallisce
     }
 
-    final matchday = Matchday.fromJson(snap.data()!);
-    _cachedMatchday = matchday;
-    _lastMatchdayFetch = DateTime.now();
-    return matchday;
+    // Se non esiste su Firestore, crea da API reale
+    return await _createMatchdayFromApi();
+  }
+
+  /// Crea giornata usando dati reali dall'API Football-Data.org
+  Future<Matchday> _createMatchdayFromApi() async {
+    try {
+      final currentMatchday = await _footballService.getCurrentMatchday();
+      final matches = await _footballService.getFixtures(round: currentMatchday);
+
+      DateTime deadline;
+      DateTime? startDate;
+      DateTime? endDate;
+
+      if (matches.isNotEmpty) {
+        matches.sort((a, b) => a.date.compareTo(b.date));
+        deadline = matches.first.date.subtract(const Duration(hours: 1));
+        startDate = matches.first.date;
+        endDate = matches.last.date;
+      } else {
+        final now = DateTime.now();
+        DateTime nextSunday = now.add(Duration(days: (DateTime.sunday - now.weekday) % 7));
+        if (nextSunday.isBefore(now) || nextSunday.day == now.day) {
+          nextSunday = nextSunday.add(const Duration(days: 7));
+        }
+        deadline = DateTime(nextSunday.year, nextSunday.month, nextSunday.day, 12, 0);
+      }
+
+      final matchday = Matchday(
+        giornata: currentMatchday,
+        deadline: deadline,
+        availableTeams: [],
+        doubleChoiceAvailable: true,
+        status: DateTime.now().isBefore(deadline)
+            ? MatchdayStatus.active
+            : MatchdayStatus.closed,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      _cachedMatchday = matchday;
+      _lastMatchdayFetch = DateTime.now();
+      return matchday;
+    } catch (_) {
+      throw const MatchdayNotFoundException();
+    }
   }
 
   Stream<UserData> streamUserData(String uid) {
@@ -135,7 +189,6 @@ class FirestoreRepo {
         throw const PickAlreadyExistsException();
       }
 
-      // Create a pick that uses the gold ticket (automatic win)
       final goldTicketPick = Pick(
         giornata: giornata,
         team: 'GOLD_TICKET',
@@ -207,7 +260,10 @@ class FirestoreRepo {
     _lastMatchdayFetch = null;
   }
 
-  void dispose() => _invalidateCache();
+  void dispose() {
+    _invalidateCache();
+    _footballService.dispose();
+  }
 }
 
 // === EXCEPTIONS ===

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:last_man_standing/providers/league_providers.dart'
     show userHasLeaguesProvider, currentUserLeaguesProvider, userLeaguesProvider;
 import 'theme/app_theme.dart';
@@ -11,13 +12,22 @@ import 'widgets/gradient_background.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/main_layout.dart';
 import 'screens/join_league_screen.dart';
+import 'services/notification_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Inizializza handler per messaggi in background
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Inizializza il servizio notifiche
+  await NotificationService().initialize();
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -34,6 +44,10 @@ class MyApp extends ConsumerWidget {
         ref.invalidate(currentUserLeaguesProvider);
         if (prevUid != null) {
           ref.invalidate(userLeaguesProvider(prevUid));
+        }
+
+        if (currUid != null) {
+          NotificationService().subscribeToTopic('all_users');
         }
       }
     });
@@ -69,6 +83,30 @@ class AuthGate extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.8, end: 1.0),
+                  duration: const Duration(milliseconds: 800),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.sports_soccer,
+                          size: 50,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
                 const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
