@@ -25,8 +25,8 @@ Future<void> main() async {
   // Inizializza handler per messaggi in background
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  // Inizializza il servizio notifiche
-  await NotificationService().initialize();
+  // Inizializza il servizio notifiche (non bloccante)
+  NotificationService().initialize();
 
   runApp(const ProviderScope(child: MyApp()));
 }

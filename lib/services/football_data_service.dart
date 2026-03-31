@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/league_models.dart';
@@ -8,7 +9,7 @@ class FootballDataService {
   static const String _baseUrl = 'https://api.football-data.org/v4';
   static const String _apiKey = String.fromEnvironment(
     'FOOTBALL_DATA_KEY',
-    defaultValue: '',
+    defaultValue: 'fe115031ba4c451f8eaa62f96a30a261',
   );
   static const String _serieACode = 'SA';
 
@@ -91,16 +92,22 @@ class FootballDataService {
     final uri = Uri.parse('$_baseUrl/competitions/$_serieACode/matches')
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
 
-    final response = await _client.get(uri, headers: _headers);
+    try {
+      final response = await _client.get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final matches = data['matches'] as List;
-      return matches.map((match) => _parseMatch(match)).toList();
-    } else if (response.statusCode == 429) {
-      throw FootballDataException('Limite API raggiunto. Riprova tra un minuto.');
-    } else {
-      throw FootballDataException('Errore nel caricamento partite: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final matches = data['matches'] as List;
+        return matches.map((match) => _parseMatch(match)).toList();
+      } else if (response.statusCode == 429) {
+        throw FootballDataException('Limite API raggiunto. Riprova tra un minuto.');
+      } else {
+        throw FootballDataException('Errore nel caricamento partite: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is FootballDataException) rethrow;
+      throw FootballDataException('Errore di connessione: $e');
     }
   }
 
@@ -221,13 +228,13 @@ class FootballDataService {
     return matches.take(limit).toList();
   }
 
-  /// Centralized GET request with error handling
+  /// Centralized GET request with error handling and timeout
   Future<Map<String, dynamic>> _get(String path) async {
     try {
       final response = await _client.get(
         Uri.parse('$_baseUrl$path'),
         headers: _headers,
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return json.decode(response.body);

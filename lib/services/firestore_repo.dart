@@ -34,7 +34,8 @@ class FirestoreRepo {
       final snap = await _db
           .collection('matchdays')
           .doc('next')
-          .get(const GetOptions(source: Source.serverAndCache));
+          .get()
+          .timeout(const Duration(seconds: 10));
 
       if (snap.exists && snap.data() != null) {
         final matchday = Matchday.fromJson(snap.data()!);
