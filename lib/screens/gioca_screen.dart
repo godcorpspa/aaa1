@@ -12,48 +12,39 @@ class GiocaScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'GIOCA',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-          ),
-        ),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      extendBodyBehindAppBar: true,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.md),
 
-              // Header
-              Text(
-                'LAST MAN STANDING',
-                style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w500,
+              const Text(
+                'Gioca',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
                 ),
-                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Last Man Standing',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 14,
+                ),
               ),
 
-              const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.xl),
 
-              // Card: Scegli Squadra
-              _buildGameCard(
-                context,
+              // Scegli Squadra - primary action
+              _GiocaCard(
                 title: 'Scegli Squadra',
                 subtitle: 'Fai la tua scelta per questa giornata',
-                icon: Icons.sports_soccer,
-                gradient: AppTheme.dangerGradient,
+                icon: Icons.sports_soccer_rounded,
+                isPrimary: true,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -62,15 +53,13 @@ class GiocaScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
 
-              // Card: Storico Scelte
-              _buildGameCard(
-                context,
+              _GiocaCard(
                 title: 'Storico Scelte',
                 subtitle: 'Le tue scelte dalle giornate precedenti',
-                icon: Icons.history,
-                gradient: AppTheme.successGradient,
+                icon: Icons.history_rounded,
+                iconColor: AppTheme.accentCyan,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -79,15 +68,13 @@ class GiocaScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
 
-              // Card: Classifica Giocatori
-              _buildGameCard(
-                context,
+              _GiocaCard(
                 title: 'Classifica Giocatori',
                 subtitle: 'Vedi come stai andando rispetto agli altri',
-                icon: Icons.leaderboard,
-                gradient: AppTheme.goldGradient,
+                icon: Icons.emoji_events_rounded,
+                iconColor: AppTheme.accentGold,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -98,24 +85,23 @@ class GiocaScreen extends ConsumerWidget {
 
               const Spacer(),
 
-              // Footer info
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: AppTheme.glassCard,
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      size: AppSizes.iconSm,
+                      Icons.info_outline_rounded,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      size: 16,
                     ),
-                    const SizedBox(width: AppSpacing.md),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Ricorda: puoi scegliere solo squadre non ancora utilizzate!',
+                        'Puoi scegliere solo squadre non ancora utilizzate',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -128,72 +114,95 @@ class GiocaScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildGameCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required LinearGradient gradient,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.xl),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+class _GiocaCard extends StatelessWidget {
+  const _GiocaCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.isPrimary = false,
+    this.iconColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isPrimary;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = iconColor ?? AppTheme.primaryRed;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: isPrimary ? null : AppTheme.surfaceCard,
+            gradient: isPrimary
+                ? const LinearGradient(
+                    colors: [Color(0xFF2A1520), Color(0xFF1A1A24)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: isPrimary
+                  ? AppTheme.primaryRed.withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.06),
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, color: color, size: 24),
               ),
-              child: Icon(icon, color: Colors.white, size: AppSizes.iconLg),
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 14,
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white.withValues(alpha: 0.8),
-              size: AppSizes.iconSm,
-            ),
-          ],
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.25),
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );

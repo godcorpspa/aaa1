@@ -4,6 +4,9 @@ import 'package:last_man_standing/models/league_models.dart'
 import 'providers.dart' show authProvider;
 import 'providers/league_providers.dart' show currentUserLeaguesProvider;
 
+/// Currently selected bottom navigation tab index
+final mainTabIndexProvider = StateProvider<int>((ref) => 0);
+
 /// Whether the current user has any leagues
 final hasLeaguesProvider = Provider<bool>((ref) {
   final authState = ref.watch(authProvider);

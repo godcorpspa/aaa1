@@ -20,33 +20,30 @@ class StatsScreen extends ConsumerWidget {
             children: [
               const SizedBox(height: AppSpacing.md),
 
-              // Title
               const Text(
-                'STATISTICHE',
+                'Statistiche',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Serie A - Dati in tempo reale',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: Colors.white.withValues(alpha: 0.4),
                   fontSize: 14,
                 ),
               ),
 
               const SizedBox(height: AppSpacing.xl),
 
-              // Classifica card
               _StatsNavCard(
-                title: 'Classifica Serie A',
-                description: 'Visualizza la classifica aggiornata del campionato',
+                title: 'Classifica',
+                description: 'Classifica aggiornata del campionato',
                 icon: Icons.leaderboard_rounded,
-                gradient: AppTheme.successGradient,
+                iconColor: AppTheme.successGreen,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -54,14 +51,13 @@ class StatsScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
 
-              // Calendario card
               _StatsNavCard(
                 title: 'Calendario',
                 description: 'Prossime partite e risultati recenti',
                 icon: Icons.calendar_month_rounded,
-                gradient: AppTheme.goldGradient,
+                iconColor: AppTheme.accentCyan,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -69,14 +65,13 @@ class StatsScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
 
-              // Risultati Live card
               _StatsNavCard(
                 title: 'Risultati Live',
-                description: 'Partite in corso, finite e prossime',
+                description: 'Partite in corso e prossime',
                 icon: Icons.sports_soccer_rounded,
-                gradient: AppTheme.dangerGradient,
+                iconColor: AppTheme.primaryRed,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -86,7 +81,6 @@ class StatsScreen extends ConsumerWidget {
 
               const Spacer(),
 
-              // Footer info
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -95,16 +89,16 @@ class StatsScreen extends ConsumerWidget {
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      size: 18,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      size: 16,
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Dati aggiornati in tempo reale del campionato di Serie A',
+                        'Dati aggiornati in tempo reale via Football-Data.org',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 12,
                         ),
                       ),
                     ),
@@ -124,14 +118,14 @@ class _StatsNavCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.icon,
-    required this.gradient,
+    required this.iconColor,
     required this.onTap,
   });
 
   final String title;
   final String description;
   final IconData icon;
-  final LinearGradient gradient;
+  final Color iconColor;
   final VoidCallback onTap;
 
   @override
@@ -146,27 +140,23 @@ class _StatsNavCard extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            gradient: gradient,
+            color: AppTheme.surfaceCard,
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                child: Icon(icon, color: Colors.white, size: AppSizes.iconLg),
+                child: Icon(icon, color: iconColor, size: 24),
               ),
-              const SizedBox(width: AppSpacing.lg),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,15 +165,15 @@ class _StatsNavCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       description,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: Colors.white.withValues(alpha: 0.4),
                         fontSize: 13,
                       ),
                     ),
@@ -191,9 +181,9 @@ class _StatsNavCard extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withValues(alpha: 0.7),
-                size: 18,
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.25),
+                size: 22,
               ),
             ],
           ),

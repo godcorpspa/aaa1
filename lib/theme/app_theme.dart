@@ -3,56 +3,63 @@ import 'package:flutter/services.dart';
 
 class AppTheme {
   // === COLORI PRIMARI ===
-  static const Color primaryRed = Color(0xFFD32F2F);
-  static const Color primaryDark = Color(0xFF1A1A2E);
-  static const Color accentGold = Color(0xFFFFB300);
-  static const Color accentOrange = Color(0xFFE64A19);
+  static const Color primaryRed = Color(0xFFE53935);
+  static const Color primaryDark = Color(0xFF0D0D12);
+  static const Color accentGold = Color(0xFFFFCA28);
+  static const Color accentOrange = Color(0xFFFF7043);
+  static const Color accentCyan = Color(0xFF26C6DA);
 
   // === COLORI SEMANTICI ===
-  static const Color successGreen = Color(0xFF2E7D32);
-  static const Color warningAmber = Color(0xFFF9A825);
-  static const Color errorRed = Color(0xFFC62828);
-  static const Color infoBlue = Color(0xFF1565C0);
+  static const Color successGreen = Color(0xFF66BB6A);
+  static const Color warningAmber = Color(0xFFFFCA28);
+  static const Color errorRed = Color(0xFFEF5350);
+  static const Color infoBlue = Color(0xFF42A5F5);
 
   // === SUPERFICI ===
-  static const Color surfaceDark = Color(0xFF16213E);
-  static const Color surfaceCard = Color(0xFF1A2744);
-  static const Color surfaceElevated = Color(0xFF1E2D4F);
+  static const Color surfaceDark = Color(0xFF111118);
+  static const Color surfaceCard = Color(0xFF1A1A24);
+  static const Color surfaceElevated = Color(0xFF22222E);
   static const Color surfaceLight = Color(0xFFF5F5F5);
 
   // === GRADIENTI ===
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFFD32F2F), Color(0xFFB71C1C)],
+    colors: [Color(0xFFE53935), Color(0xFFC62828)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   static const LinearGradient backgroundGradient = LinearGradient(
-    colors: [Color(0xFF0F0C29), Color(0xFF1A1A2E), Color(0xFF16213E)],
+    colors: [Color(0xFF0D0D12), Color(0xFF111118), Color(0xFF16161F)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
 
   static const LinearGradient cardGradient = LinearGradient(
-    colors: [Color(0xFF1A2744), Color(0xFF16213E)],
+    colors: [Color(0xFF1E1E2A), Color(0xFF1A1A24)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient goldGradient = LinearGradient(
-    colors: [Color(0xFFFFD54F), Color(0xFFFFB300), Color(0xFFF9A825)],
+    colors: [Color(0xFFFFD54F), Color(0xFFFFCA28), Color(0xFFFFA726)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient successGradient = LinearGradient(
-    colors: [Color(0xFF43A047), Color(0xFF2E7D32)],
+    colors: [Color(0xFF66BB6A), Color(0xFF43A047)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const LinearGradient dangerGradient = LinearGradient(
-    colors: [Color(0xFFE53935), Color(0xFFC62828)],
+    colors: [Color(0xFFEF5350), Color(0xFFE53935)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient cyanGradient = LinearGradient(
+    colors: [Color(0xFF26C6DA), Color(0xFF0097A7)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -63,13 +70,14 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: primaryDark,
+      fontFamily: 'Roboto',
 
       colorScheme: const ColorScheme.dark(
         primary: primaryRed,
         onPrimary: Colors.white,
         secondary: accentGold,
         onSecondary: Colors.black,
-        tertiary: accentOrange,
+        tertiary: accentCyan,
         error: errorRed,
         onError: Colors.white,
         surface: surfaceDark,
@@ -100,17 +108,17 @@ class AppTheme {
       // Input
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1E2D4F),
+        fillColor: surfaceElevated,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
         labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-        prefixIconColor: Colors.white54,
-        suffixIconColor: Colors.white54,
+        prefixIconColor: Colors.white38,
+        suffixIconColor: Colors.white38,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -128,7 +136,7 @@ class AppTheme {
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Colors.white.withValues(alpha: 0.04),
           ),
         ),
       ),
@@ -155,7 +163,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
           side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.3),
+            color: Colors.white.withValues(alpha: 0.2),
             width: 1.5,
           ),
           shape:
@@ -172,7 +180,7 @@ class AppTheme {
       // Text Button
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: accentGold,
+          foregroundColor: accentCyan,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -189,7 +197,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: Colors.white.withValues(alpha: 0.06),
           ),
         ),
         color: surfaceCard,
@@ -220,7 +228,7 @@ class AppTheme {
         backgroundColor: surfaceDark,
         elevation: 0,
         selectedItemColor: primaryRed,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.4),
+        unselectedItemColor: Colors.white.withValues(alpha: 0.35),
         selectedLabelStyle: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
@@ -243,13 +251,13 @@ class AppTheme {
       // Progress
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: primaryRed,
-        linearTrackColor: Color(0xFF1E2D4F),
-        circularTrackColor: Color(0xFF1E2D4F),
+        linearTrackColor: surfaceElevated,
+        circularTrackColor: surfaceElevated,
       ),
 
       // Divider
       dividerTheme: DividerThemeData(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.06),
         thickness: 1,
         space: 1,
       ),
@@ -269,7 +277,7 @@ class AppTheme {
         disabledColor: surfaceCard,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
       ),
 
       // Switch
@@ -282,7 +290,7 @@ class AppTheme {
           if (states.contains(WidgetState.selected)) {
             return primaryRed.withValues(alpha: 0.4);
           }
-          return Colors.white.withValues(alpha: 0.1);
+          return Colors.white.withValues(alpha: 0.08);
         }),
       ),
 
@@ -315,10 +323,10 @@ class AppTheme {
   // === DECORAZIONI RIUTILIZZABILI ===
 
   static BoxDecoration get glassCard => BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: Colors.white.withValues(alpha: 0.08),
         ),
       );
 
@@ -326,12 +334,12 @@ class AppTheme {
         gradient: cardGradient,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: Colors.white.withValues(alpha: 0.06),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 12,
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -342,7 +350,7 @@ class AppTheme {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: accentGold.withValues(alpha: 0.3),
+            color: accentGold.withValues(alpha: 0.25),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -352,9 +360,9 @@ class AppTheme {
   static BoxDecoration statusCard(StatusType status) {
     final color = _statusColor(status);
     return BoxDecoration(
-      color: color.withValues(alpha: 0.12),
+      color: color.withValues(alpha: 0.1),
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: color.withValues(alpha: 0.3)),
+      border: Border.all(color: color.withValues(alpha: 0.25)),
     );
   }
 

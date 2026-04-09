@@ -19,6 +19,30 @@ class _ScegliSquadraScreenState extends ConsumerState<ScegliSquadraScreen> {
   String? _selectedTeam;
   bool _useGoldTicket = false;
 
+  // Fallback list: Serie A 2024-25 teams (used when API fails/loading)
+  static const List<String> _fallbackSerieATeams = [
+    'AC Milan',
+    'Atalanta',
+    'Bologna',
+    'Cagliari',
+    'Como',
+    'Empoli',
+    'Fiorentina',
+    'Genoa',
+    'Hellas Verona',
+    'Inter',
+    'Juventus',
+    'Lazio',
+    'Lecce',
+    'Monza',
+    'Napoli',
+    'Parma',
+    'Roma',
+    'Torino',
+    'Udinese',
+    'Venezia',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final matchdayAsync = ref.watch(matchdayProvider);
@@ -466,15 +490,28 @@ class _ScegliSquadraScreenState extends ConsumerState<ScegliSquadraScreen> {
     List<String> availableTeams,
     bool doubleChoiceAvailable,
   ) async {
-    final allTeams = teamNamesAsync.valueOrNull ?? [];
+    final apiTeams = teamNamesAsync.valueOrNull ?? <String>[];
     final usedTeams = userDataAsync.whenData<List<String>>(
       (ud) => ud.teamsUsed,
-    ).valueOrNull ?? [];
+    ).valueOrNull ?? <String>[];
+
+    // Priority order:
+    // 1. Teams restricted by matchday config (if set)
+    // 2. Teams loaded from API
+    // 3. Hardcoded Serie A fallback (never empty)
+    List<String> teamsToShow;
+    if (availableTeams.isNotEmpty) {
+      teamsToShow = availableTeams;
+    } else if (apiTeams.isNotEmpty) {
+      teamsToShow = apiTeams;
+    } else {
+      teamsToShow = _fallbackSerieATeams;
+    }
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => TeamPickerDialog(
-        availableTeams: availableTeams.isNotEmpty ? availableTeams : allTeams,
+        availableTeams: teamsToShow,
         usedTeams: usedTeams,
         initialSelection: _selectedTeam,
         allowDoubleChoice: doubleChoiceAvailable,

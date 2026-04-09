@@ -1,9 +1,10 @@
+import 'dart:async';
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
-import 'dart:ui';
 import '../providers.dart';
-import '../shared_providers.dart' show selectedLeagueDetailsProvider;
+import '../shared_providers.dart'
+    show selectedLeagueDetailsProvider, mainTabIndexProvider;
 import '../models/matchday.dart';
 import '../models/user_data.dart';
 import '../theme/app_theme.dart';
@@ -108,34 +109,34 @@ class _HomePageState extends ConsumerState<HomePage>
               'Ciao, ${user.displayName}',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Last Man Standing - Serie A',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 14,
-                letterSpacing: 1,
+                letterSpacing: 0.5,
               ),
             ),
 
             // Selected league badge
             leagueAsync.when(
               data: (league) {
-                if (league == null) return const SizedBox(height: AppSpacing.lg);
+                if (league == null) return const SizedBox(height: AppSpacing.md);
                 return Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.md),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                        horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.accentGold.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      color: AppTheme.accentGold.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppRadius.xxl),
                       border: Border.all(
-                        color: AppTheme.accentGold.withValues(alpha: 0.4),
+                        color: AppTheme.accentGold.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -144,15 +145,15 @@ class _HomePageState extends ConsumerState<HomePage>
                         Icon(
                           league.isPrivate ? Icons.lock_rounded : Icons.public,
                           color: AppTheme.accentGold,
-                          size: 16,
+                          size: 14,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             league.name,
                             style: const TextStyle(
                               color: AppTheme.accentGold,
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -163,8 +164,8 @@ class _HomePageState extends ConsumerState<HomePage>
                   ),
                 );
               },
-              loading: () => const SizedBox(height: AppSpacing.lg),
-              error: (_, __) => const SizedBox(height: AppSpacing.lg),
+              loading: () => const SizedBox(height: AppSpacing.md),
+              error: (_, __) => const SizedBox(height: AppSpacing.md),
             ),
 
             const SizedBox(height: AppSpacing.lg),
@@ -173,26 +174,47 @@ class _HomePageState extends ConsumerState<HomePage>
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: AppTheme.elevatedCard,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E1E2A), Color(0xFF1A1A24)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              ),
               child: Column(
                 children: [
-                  Text(
-                    'GIORNATA ${matchday.giornata}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryRed.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppRadius.xxl),
+                    ),
+                    child: Text(
+                      'GIORNATA ${matchday.giornata}',
+                      style: TextStyle(
+                        color: AppTheme.primaryRed.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.lg),
                   if (isExpired)
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppTheme.errorRed.withValues(alpha: 0.15),
+                        color: AppTheme.errorRed.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(
+                          color: AppTheme.errorRed.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: const Text(
                         'SCADUTO',
@@ -200,6 +222,7 @@ class _HomePageState extends ConsumerState<HomePage>
                           color: AppTheme.errorRed,
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
+                          letterSpacing: 2,
                         ),
                       ),
                     )
@@ -209,7 +232,7 @@ class _HomePageState extends ConsumerState<HomePage>
               ),
             ),
 
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
 
             // Quick stats row
             Row(
@@ -218,21 +241,21 @@ class _HomePageState extends ConsumerState<HomePage>
                   Icons.local_fire_department_rounded,
                   '${user.currentStreak}',
                   'Streak',
-                  Colors.orange,
+                  AppTheme.accentOrange,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _statTile(
                   Icons.stars_rounded,
                   '${user.goldTickets}',
-                  'Gold Tickets',
+                  'Gold',
                   AppTheme.accentGold,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _statTile(
                   Icons.sports_soccer_rounded,
                   '${user.teamsUsed.length}',
-                  'Squadre',
-                  AppTheme.infoBlue,
+                  'Usate',
+                  AppTheme.accentCyan,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 _statTile(
@@ -254,10 +277,9 @@ class _HomePageState extends ConsumerState<HomePage>
               height: AppSizes.buttonHeight,
               child: ElevatedButton(
                 onPressed: user.isActive
-                    ? () {
-                        // Navigate to Gioca tab (index 2) via MainLayout
-                        // The parent PageView handles this
-                      }
+                    ? () => ref
+                        .read(mainTabIndexProvider.notifier)
+                        .state = 2
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryRed,
@@ -265,10 +287,11 @@ class _HomePageState extends ConsumerState<HomePage>
                   disabledBackgroundColor:
                       AppTheme.surfaceElevated,
                   disabledForegroundColor:
-                      Colors.white.withValues(alpha: 0.3),
+                      Colors.white.withValues(alpha: 0.25),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadius.lg),
                   ),
+                  elevation: 0,
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -318,21 +341,31 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget _countdownUnit(String value, String label) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            fontFeatures: [FontFeature.tabularFigures()],
+        Container(
+          width: 52,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          child: Center(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
-            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.3),
+            fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
           ),
@@ -343,12 +376,12 @@ class _HomePageState extends ConsumerState<HomePage>
 
   Widget _countdownSep() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.only(bottom: 16, left: 6, right: 6),
       child: Text(
         ':',
         style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.3),
-          fontSize: 24,
+          color: Colors.white.withValues(alpha: 0.2),
+          fontSize: 22,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -360,13 +393,13 @@ class _HomePageState extends ConsumerState<HomePage>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: color.withValues(alpha: 0.12)),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 22),
+            Icon(icon, color: color, size: 20),
             const SizedBox(height: 6),
             Text(
               value,
@@ -380,7 +413,7 @@ class _HomePageState extends ConsumerState<HomePage>
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -406,12 +439,12 @@ class _HomePageState extends ConsumerState<HomePage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline_rounded,
-                size: 56, color: Colors.white.withValues(alpha: 0.5)),
+                size: 48, color: Colors.white.withValues(alpha: 0.3)),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Errore: $error',
               style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+                  color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),

@@ -42,7 +42,7 @@ class ProfiloScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline_rounded,
-                size: 48, color: Colors.white.withValues(alpha: 0.5)),
+                size: 48, color: Colors.white.withValues(alpha: 0.3)),
             const SizedBox(height: AppSpacing.md),
             const Text(
               'Errore nel caricamento del profilo',
@@ -63,21 +63,21 @@ class ProfiloScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.login_rounded,
-              size: 56, color: Colors.white.withValues(alpha: 0.5)),
+              size: 48, color: Colors.white.withValues(alpha: 0.3)),
           const SizedBox(height: AppSpacing.lg),
           const Text(
             'Accesso richiesto',
             style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
-                fontWeight: FontWeight.w700),
+                fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Devi essere autenticato per\naccedere al profilo',
             textAlign: TextAlign.center,
             style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5), fontSize: 15),
+                color: Colors.white.withValues(alpha: 0.4), fontSize: 15),
           ),
         ],
       ),
@@ -85,9 +85,6 @@ class ProfiloScreen extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main content (needs ref for league selection)
-// ---------------------------------------------------------------------------
 class _Content extends ConsumerWidget {
   const _Content({required this.user, required this.userData});
   final User user;
@@ -101,23 +98,35 @@ class _Content extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: AppSpacing.md),
+
+          const Text(
+            'Profilo',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.lg),
 
           // Avatar + user info
           _buildHeader(context),
 
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
 
           // Le Mie Leghe
           _buildLeaguesSection(context, ref, userLeagues, selectedLeague),
 
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
 
           // Settings
           _buildSettings(context),
 
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
 
           // Logout
           SizedBox(
@@ -132,7 +141,7 @@ class _Content extends ConsumerWidget {
               ),
               style: OutlinedButton.styleFrom(
                 side: BorderSide(
-                    color: AppTheme.errorRed.withValues(alpha: 0.4)),
+                    color: AppTheme.errorRed.withValues(alpha: 0.25)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadius.lg)),
               ),
@@ -145,7 +154,6 @@ class _Content extends ConsumerWidget {
     );
   }
 
-  // ---------- Header ----------
   Widget _buildHeader(BuildContext context) {
     final displayName =
         user.displayName ?? userData?.displayName ?? 'Utente';
@@ -158,40 +166,44 @@ class _Content extends ConsumerWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: AppTheme.elevatedCard,
-      child: Column(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+        ),
+      ),
+      child: Row(
         children: [
           // Avatar
           Container(
-            width: 88,
-            height: 88,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: isActive
-                  ? AppTheme.primaryRed
+                  ? AppTheme.primaryRed.withValues(alpha: 0.2)
                   : AppTheme.surfaceElevated,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: (isActive ? AppTheme.primaryRed : Colors.black)
-                      .withValues(alpha: 0.3),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              border: Border.all(
+                color: isActive
+                    ? AppTheme.primaryRed.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.1),
+                width: 2,
+              ),
             ),
             child: Center(
               child: user.photoURL != null
                   ? ClipOval(
                       child: Image.network(
                         user.photoURL!,
-                        width: 88,
-                        height: 88,
+                        width: 60,
+                        height: 60,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Text(
                           initials,
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 32,
+                              fontSize: 24,
                               fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -200,66 +212,55 @@ class _Content extends ConsumerWidget {
                       initials,
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 32,
+                          fontSize: 24,
                           fontWeight: FontWeight.w700),
                     ),
             ),
           ),
 
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(width: AppSpacing.md),
 
-          Text(
-            displayName,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w700),
-          ),
-
-          if (email.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              email,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 14),
-            ),
-          ],
-
-          const SizedBox(height: AppSpacing.md),
-
-          // Status badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: (isActive ? AppTheme.successGreen : AppTheme.errorRed)
-                  .withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppRadius.xl),
-              border: Border.all(
-                color: (isActive ? AppTheme.successGreen : AppTheme.errorRed)
-                    .withValues(alpha: 0.4),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isActive
-                      ? Icons.check_circle_rounded
-                      : Icons.cancel_rounded,
-                  color:
-                      isActive ? AppTheme.successGreen : AppTheme.errorRed,
-                  size: 16,
-                ),
-                const SizedBox(width: 6),
                 Text(
-                  isActive ? 'ATTIVO' : 'ELIMINATO',
-                  style: TextStyle(
-                    color: isActive
-                        ? AppTheme.successGreen
-                        : AppTheme.errorRed,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                  displayName,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700),
+                ),
+                if (email.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color:
+                        (isActive ? AppTheme.successGreen : AppTheme.errorRed)
+                            .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppRadius.xxl),
+                  ),
+                  child: Text(
+                    isActive ? 'ATTIVO' : 'ELIMINATO',
+                    style: TextStyle(
+                      color: isActive
+                          ? AppTheme.successGreen
+                          : AppTheme.errorRed,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ],
@@ -270,7 +271,6 @@ class _Content extends ConsumerWidget {
     );
   }
 
-  // ---------- Leagues ----------
   Widget _buildLeaguesSection(
     BuildContext context,
     WidgetRef ref,
@@ -280,22 +280,27 @@ class _Content extends ConsumerWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: AppTheme.glassCard,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.groups_rounded,
-                  color: Colors.white, size: 22),
+              Icon(Icons.groups_rounded,
+                  color: Colors.white.withValues(alpha: 0.7), size: 20),
               const SizedBox(width: AppSpacing.sm),
               const Text(
-                'LE MIE LEGHE',
+                'Le mie leghe',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
                 ),
               ),
             ],
@@ -389,14 +394,13 @@ class _Content extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppTheme.primaryRed.withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.04),
+                  ? AppTheme.primaryRed.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(
                 color: isSelected
-                    ? AppTheme.primaryRed
-                    : Colors.white.withValues(alpha: 0.1),
-                width: isSelected ? 1.5 : 1,
+                    ? AppTheme.primaryRed.withValues(alpha: 0.25)
+                    : Colors.white.withValues(alpha: 0.06),
               ),
             ),
             child: Row(
@@ -405,8 +409,8 @@ class _Content extends ConsumerWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppTheme.primaryRed
-                        : Colors.white.withValues(alpha: 0.1),
+                        ? AppTheme.primaryRed.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.06),
                     borderRadius:
                         BorderRadius.circular(AppRadius.sm),
                   ),
@@ -414,7 +418,9 @@ class _Content extends ConsumerWidget {
                     league.isPrivate
                         ? Icons.lock_rounded
                         : Icons.public_rounded,
-                    color: Colors.white,
+                    color: isSelected
+                        ? AppTheme.primaryRed
+                        : Colors.white.withValues(alpha: 0.5),
                     size: 18,
                   ),
                 ),
@@ -430,7 +436,7 @@ class _Content extends ConsumerWidget {
                           fontSize: 15,
                           fontWeight: isSelected
                               ? FontWeight.w700
-                              : FontWeight.w600,
+                              : FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -438,7 +444,7 @@ class _Content extends ConsumerWidget {
                         '${league.currentParticipants} partecipanti',
                         style: TextStyle(
                           color:
-                              Colors.white.withValues(alpha: 0.5),
+                              Colors.white.withValues(alpha: 0.35),
                           fontSize: 12,
                         ),
                       ),
@@ -446,15 +452,8 @@ class _Content extends ConsumerWidget {
                   ),
                 ),
                 if (isSelected)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primaryRed,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 14),
-                  ),
+                  Icon(Icons.check_circle_rounded,
+                      color: AppTheme.primaryRed, size: 20),
               ],
             ),
           ),
@@ -465,20 +464,20 @@ class _Content extends ConsumerWidget {
 
   Widget _noLeagues(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Column(
         children: [
           Icon(Icons.groups_outlined,
-              size: 44, color: Colors.white.withValues(alpha: 0.3)),
+              size: 40, color: Colors.white.withValues(alpha: 0.2)),
           const SizedBox(height: AppSpacing.md),
           Text(
             'Non fai parte di nessuna lega',
             style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 15),
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 14),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           ElevatedButton.icon(
             onPressed: () => Navigator.push(
               context,
@@ -493,88 +492,52 @@ class _Content extends ConsumerWidget {
     );
   }
 
-  // ---------- Settings ----------
   Widget _buildSettings(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: AppTheme.glassCard,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceCard,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'IMPOSTAZIONI',
+            'Impostazioni',
             style: TextStyle(
               color: Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Notifications toggle
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.infoBlue.withValues(alpha: 0.15),
-                  borderRadius:
-                      BorderRadius.circular(AppRadius.sm),
-                ),
-                child: const Icon(Icons.notifications_rounded,
-                    color: AppTheme.infoBlue, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Expanded(
-                child: Text(
-                  'Notifiche',
-                  style: TextStyle(
-                      color: Colors.white, fontSize: 15),
-                ),
-              ),
-              Switch(value: true, onChanged: (_) {}),
-            ],
+          _settingsRow(
+            Icons.notifications_rounded,
+            'Notifiche',
+            AppTheme.accentCyan,
+            trailing: Switch(value: true, onChanged: (_) {}),
           ),
 
           Divider(
-            color: Colors.white.withValues(alpha: 0.08),
-            height: AppSpacing.lg,
+            color: Colors.white.withValues(alpha: 0.04),
+            height: AppSpacing.md,
           ),
 
-          // About
           InkWell(
             borderRadius: BorderRadius.circular(AppRadius.sm),
             onTap: () => _showAbout(context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Icon(Icons.info_outline_rounded,
-                        color: Colors.white.withValues(alpha: 0.6),
-                        size: 20),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  const Expanded(
-                    child: Text(
-                      'Informazioni App',
-                      style: TextStyle(
-                          color: Colors.white, fontSize: 15),
-                    ),
-                  ),
-                  Icon(Icons.arrow_forward_ios_rounded,
-                      color: Colors.white.withValues(alpha: 0.3),
-                      size: 16),
-                ],
-              ),
+            child: _settingsRow(
+              Icons.info_outline_rounded,
+              'Informazioni App',
+              Colors.white.withValues(alpha: 0.5),
+              trailing: Icon(Icons.chevron_right_rounded,
+                  color: Colors.white.withValues(alpha: 0.2),
+                  size: 20),
             ),
           ),
         ],
@@ -582,7 +545,35 @@ class _Content extends ConsumerWidget {
     );
   }
 
-  // ---------- Dialogs ----------
+  Widget _settingsRow(IconData icon, String label, Color iconColor,
+      {Widget? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              borderRadius:
+                  BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 14),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
