@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 /// Servizio per gestire le notifiche push
 class NotificationService {
@@ -60,6 +62,10 @@ class NotificationService {
   }
 
   Future<void> _initializeLocalNotifications() async {
+    // Initialize timezone data so we can schedule notifications with
+    // tz.TZDateTime (required by flutter_local_notifications >= 10).
+    tzdata.initializeTimeZones();
+
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -387,6 +393,83 @@ class NotificationService {
         'giornata': giornata,
       }),
     );
+  }
+
+  /// Notification id used for the scheduled deadline reminder.
+  /// It is stable, so re-scheduling automatically cancels the previous one.
+  static const int _scheduledDeadlineId = 90001;
+
+  /// Schedules a local notification exactly 30 minutes before the pick
+  /// deadline for [giornata]. If the target instant is already in the past
+  /// the previous scheduled notification is just cancelled.
+  ///
+  /// Safe to call multiple times — it always replaces the previous schedule.
+  Future<void> scheduleDeadlineReminder30MinBefore({
+    required int giornata,
+    required DateTime deadline,
+  }) async {
+    if (!_isInitialized) {
+      try {
+        await _initializeLocalNotifications();
+      } catch (_) {
+        return;
+      }
+    }
+
+    // Cancel any previous scheduled reminder (even if deadline has moved).
+    await _localNotifications.cancel(_scheduledDeadlineId);
+
+    final fireAt = deadline.subtract(const Duration(minutes: 30));
+    if (fireAt.isBefore(DateTime.now())) {
+      return; // Too late to schedule.
+    }
+
+    final tzFireAt = tz.TZDateTime.from(fireAt, tz.local);
+
+    const androidDetails = AndroidNotificationDetails(
+      'deadline',
+      'Promemoria Deadline',
+      channelDescription:
+          'Promemoria per effettuare la scelta prima della deadline',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    try {
+      await _localNotifications.zonedSchedule(
+        _scheduledDeadlineId,
+        'Scegli la tua squadra!',
+        'Mancano 30 minuti alla scadenza della giornata $giornata',
+        tzFireAt,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: jsonEncode({
+          'action': 'open_pick',
+          'giornata': giornata,
+        }),
+      );
+    } catch (e) {
+      debugPrint('Errore nello scheduling del promemoria deadline: $e');
+    }
+  }
+
+  /// Cancels any previously scheduled deadline reminder.
+  Future<void> cancelScheduledDeadlineReminder() async {
+    try {
+      await _localNotifications.cancel(_scheduledDeadlineId);
+    } catch (_) {}
   }
 
   Future<void> showLeagueUpdateNotification({

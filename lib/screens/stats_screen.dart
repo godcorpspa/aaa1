@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import 'classifica_screen.dart';
 import 'calendario_screen.dart';
-import 'risultati_live_screen.dart';
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
@@ -55,27 +54,13 @@ class StatsScreen extends ConsumerWidget {
 
               _StatsNavCard(
                 title: 'Calendario',
-                description: 'Prossime partite e risultati recenti',
+                description: 'Partite, risultati e live in tempo reale',
                 icon: Icons.calendar_month_rounded,
                 iconColor: AppTheme.accentCyan,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
                       builder: (_) => const CalendarioScreen()),
-                ),
-              ),
-
-              const SizedBox(height: AppSpacing.sm),
-
-              _StatsNavCard(
-                title: 'Risultati Live',
-                description: 'Partite in corso e prossime',
-                icon: Icons.sports_soccer_rounded,
-                iconColor: AppTheme.primaryRed,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const RisultatiLiveScreen()),
                 ),
               ),
 

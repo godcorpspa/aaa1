@@ -21,6 +21,7 @@ class Pick {
   final PickResult? secondTeamResult;
   final PickType type;
   final DateTime createdAt;
+  final bool autoAssigned;
 
   Pick({
     required this.giornata,
@@ -31,6 +32,7 @@ class Pick {
     this.secondTeamResult,
     this.type = PickType.normal,
     DateTime? createdAt,
+    this.autoAssigned = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory Pick.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,7 @@ class Pick {
       ),
       createdAt:
           (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      autoAssigned: (json['autoAssigned'] ?? false) as bool,
     );
   }
 
@@ -68,6 +71,7 @@ class Pick {
       'secondTeamResult': secondTeamResult?.name,
       'type': type.name,
       'createdAt': Timestamp.fromDate(createdAt),
+      'autoAssigned': autoAssigned,
     };
   }
 
@@ -123,6 +127,7 @@ class Pick {
     PickResult? secondTeamResult,
     PickType? type,
     DateTime? createdAt,
+    bool? autoAssigned,
   }) {
     return Pick(
       giornata: giornata ?? this.giornata,
@@ -133,6 +138,7 @@ class Pick {
       secondTeamResult: secondTeamResult ?? this.secondTeamResult,
       type: type ?? this.type,
       createdAt: createdAt ?? this.createdAt,
+      autoAssigned: autoAssigned ?? this.autoAssigned,
     );
   }
 

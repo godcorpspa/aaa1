@@ -80,6 +80,7 @@ class Match {
   final int? awayScore;
   final int? minute;
   final String venue;
+  final int? matchday;
 
   Match({
     required this.id,
@@ -91,6 +92,7 @@ class Match {
     this.awayScore,
     this.minute,
     required this.venue,
+    this.matchday,
   });
 
   factory Match.fromJson(Map<String, dynamic> json) {

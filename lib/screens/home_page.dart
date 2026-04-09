@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' show FontFeature;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
@@ -21,6 +22,7 @@ class _HomePageState extends ConsumerState<HomePage>
   Timer? _timer;
   Duration _remaining = Duration.zero;
   bool _isDisposed = false;
+  int? _autoAssignCheckedForGiornata;
 
   @override
   void initState() {
@@ -58,6 +60,48 @@ class _HomePageState extends ConsumerState<HomePage>
     });
   }
 
+  /// If the user is still active but missed the current matchday's deadline
+  /// (pick window has closed and no pick was submitted), auto-assign the
+  /// first alphabetically-available team. Runs at most once per giornata.
+  void _maybeAutoAssignExpiredPick(Matchday matchday, UserData user) {
+    if (_autoAssignCheckedForGiornata == matchday.giornata) return;
+    if (!user.isActive) return;
+    if (!DateTime.now().isAfter(matchday.deadline)) return;
+
+    _autoAssignCheckedForGiornata = matchday.giornata;
+
+    // Kick off asynchronously; we don't await — any errors are swallowed
+    // silently because this is a best-effort recovery path.
+    Future.microtask(() async {
+      if (_isDisposed) return;
+      try {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid == null || uid.isEmpty) return;
+        final allTeams =
+            await ref.read(serieATeamNamesProvider.future);
+        if (allTeams.isEmpty) return;
+        final assigned = await ref.read(repoProvider).autoAssignPickIfMissed(
+              uid: uid,
+              giornata: matchday.giornata,
+              allTeams: allTeams,
+            );
+        if (assigned != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Scelta automatica: ${assigned.team} (Giornata ${matchday.giornata})',
+              ),
+              backgroundColor: AppTheme.warningAmber,
+            ),
+          );
+          ref.invalidate(userDataProvider);
+        }
+      } catch (_) {
+        // Best-effort: stay silent on failure.
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final matchdayAsync = ref.watch(matchdayProvider);
@@ -78,7 +122,10 @@ class _HomePageState extends ConsumerState<HomePage>
             return userAsync.when(
               loading: () => _loading(),
               error: (e, _) => _error(e),
-              data: (user) => _buildBody(context, matchday, user),
+              data: (user) {
+                _maybeAutoAssignExpiredPick(matchday, user);
+                return _buildBody(context, matchday, user);
+              },
             );
           },
         ),

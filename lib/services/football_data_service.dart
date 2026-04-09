@@ -135,6 +135,7 @@ class FootballDataService {
       awayScore: fullTime?['away'],
       minute: _parseMinute(match),
       venue: match['venue'] ?? '',
+      matchday: match['matchday'] is int ? match['matchday'] as int : null,
     );
   }
 
@@ -214,6 +215,52 @@ class FootballDataService {
     return currentSeason?['currentMatchday'] ?? 1;
   }
 
+  /// Returns the next playable matchday (the lowest matchday number with at
+  /// least one SCHEDULED match) along with its matches sorted by kickoff.
+  ///
+  /// This is what the game should target: if the currently-playing matchday
+  /// has already started, picks for it are locked and the user should be
+  /// able to pick for the next one instead.
+  Future<NextPlayableMatchday> getNextPlayableMatchday() async {
+    final scheduled = await getMatches(status: 'SCHEDULED');
+    if (scheduled.isEmpty) {
+      // Fallback: nothing scheduled → use API "currentMatchday"
+      final current = await getCurrentMatchday();
+      return NextPlayableMatchday(
+        matchday: current < 1 ? 1 : current,
+        matches: const <Match>[],
+      );
+    }
+
+    // Bucket by matchday and pick the smallest matchday number.
+    final byMatchday = <int, List<Match>>{};
+    for (final m in scheduled) {
+      final md = _matchdayNumberForMatch(m);
+      if (md == null) continue;
+      byMatchday.putIfAbsent(md, () => <Match>[]).add(m);
+    }
+
+    if (byMatchday.isEmpty) {
+      // Fallback: sort by date, infer smallest matchday by earliest kickoff.
+      scheduled.sort((a, b) => a.date.compareTo(b.date));
+      return NextPlayableMatchday(
+        matchday: await getCurrentMatchday(),
+        matches: scheduled,
+      );
+    }
+
+    final smallestMd = byMatchday.keys.reduce((a, b) => a < b ? a : b);
+    final list = byMatchday[smallestMd]!
+      ..sort((a, b) => a.date.compareTo(b.date));
+
+    return NextPlayableMatchday(
+      matchday: smallestMd < 1 ? 1 : smallestMd,
+      matches: list,
+    );
+  }
+
+  int? _matchdayNumberForMatch(Match match) => match.matchday;
+
   /// Recupera i risultati recenti (ultime partite finite)
   Future<List<Match>> getRecentResults({int limit = 10}) async {
     final matches = await getMatches(status: 'FINISHED');
@@ -271,4 +318,21 @@ class FootballDataException implements Exception {
 
   @override
   String toString() => 'FootballDataException: $message';
+}
+
+/// Result of [FootballDataService.getNextPlayableMatchday].
+class NextPlayableMatchday {
+  final int matchday;
+  final List<Match> matches;
+
+  const NextPlayableMatchday({
+    required this.matchday,
+    required this.matches,
+  });
+
+  /// First match of this matchday (kickoff time). `null` if no matches.
+  Match? get firstMatch => matches.isNotEmpty ? matches.first : null;
+
+  /// Last match of this matchday. `null` if no matches.
+  Match? get lastMatch => matches.isNotEmpty ? matches.last : null;
 }

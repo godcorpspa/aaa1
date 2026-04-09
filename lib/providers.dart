@@ -93,6 +93,13 @@ final nextMatchdayFixturesProvider = FutureProvider<List<Match>>((ref) async {
   return await service.getFixtures(round: currentMatchday);
 });
 
+/// Provider per TUTTE le partite Serie A (calendario unificato).
+/// Include partite non iniziate, live e finite. Usato dal calendario.
+final allSerieAMatchesProvider = FutureProvider<List<Match>>((ref) async {
+  final service = ref.read(footballDataProvider);
+  return await service.getMatches();
+});
+
 /// Provider per le prossime partite (dati reali)
 final upcomingMatchesProvider = FutureProvider<List<Match>>((ref) async {
   final service = ref.read(footballDataProvider);

@@ -51,38 +51,40 @@ class FirestoreRepo {
     return await _createMatchdayFromApi();
   }
 
-  /// Crea giornata usando dati reali dall'API Football-Data.org
+  /// Crea giornata usando dati reali dall'API Football-Data.org.
+  ///
+  /// Chiave: targettiamo la PROSSIMA giornata giocabile (la più piccola con
+  /// almeno una partita ancora SCHEDULED), non quella attualmente in corso.
+  /// La deadline coincide con il calcio d'inizio della prima partita della
+  /// giornata: è "aperto" finché quella partita non inizia.
   Future<Matchday> _createMatchdayFromApi() async {
     try {
-      final currentMatchday = await _footballService.getCurrentMatchday();
-      final matches = await _footballService.getFixtures(round: currentMatchday);
+      final next = await _footballService.getNextPlayableMatchday();
 
       DateTime deadline;
       DateTime? startDate;
       DateTime? endDate;
 
-      if (matches.isNotEmpty) {
-        matches.sort((a, b) => a.date.compareTo(b.date));
-        deadline = matches.first.date.subtract(const Duration(hours: 1));
-        startDate = matches.first.date;
-        endDate = matches.last.date;
+      if (next.matches.isNotEmpty) {
+        startDate = next.firstMatch!.date;
+        endDate = next.lastMatch!.date;
+        // Deadline = kickoff della prima partita (picks chiusi all'inizio).
+        deadline = startDate;
       } else {
+        // Nessuna partita SCHEDULED trovata: fallback a un lunedì futuro.
         final now = DateTime.now();
-        DateTime nextSunday = now.add(Duration(days: (DateTime.sunday - now.weekday) % 7));
-        if (nextSunday.isBefore(now) || nextSunday.day == now.day) {
-          nextSunday = nextSunday.add(const Duration(days: 7));
-        }
-        deadline = DateTime(nextSunday.year, nextSunday.month, nextSunday.day, 12, 0);
+        deadline = now.add(const Duration(days: 7));
       }
 
+      final giornata = next.matchday < 1 ? 1 : next.matchday;
+      final isOpen = DateTime.now().isBefore(deadline);
+
       final matchday = Matchday(
-        giornata: currentMatchday,
+        giornata: giornata,
         deadline: deadline,
-        availableTeams: [],
+        availableTeams: const [],
         doubleChoiceAvailable: true,
-        status: DateTime.now().isBefore(deadline)
-            ? MatchdayStatus.active
-            : MatchdayStatus.closed,
+        status: isOpen ? MatchdayStatus.active : MatchdayStatus.closed,
         startDate: startDate,
         endDate: endDate,
       );
@@ -213,6 +215,56 @@ class FirestoreRepo {
     });
   }
 
+  /// Auto-assign the first alphabetically-available team to a user who
+  /// missed the deadline. Idempotent: does nothing if a pick already exists
+  /// or if the user is eliminated / has no teams left.
+  ///
+  /// [allTeams] is the pool of Serie A teams to choose from (normally from
+  /// `FootballDataService.getTeamNames()`).
+  Future<Pick?> autoAssignPickIfMissed({
+    required String uid,
+    required int giornata,
+    required List<String> allTeams,
+  }) async {
+    if (uid.isEmpty) throw const InvalidUserIdException();
+    if (allTeams.isEmpty) return null;
+
+    Pick? assignedPick;
+
+    await _db.runTransaction((tx) async {
+      final userRef = _db.collection('users').doc(uid);
+      final pickRef = userRef.collection('picks').doc(giornata.toString());
+
+      final pickDoc = await tx.get(pickRef);
+      if (pickDoc.exists) return; // User already picked.
+
+      final userDoc = await tx.get(userRef);
+      if (!userDoc.exists) return;
+      final userData = UserData.fromJson(userDoc.data()!);
+      if (!userData.isActive) return; // Eliminated users don't auto-pick.
+
+      final team = userData.getAutoAssignTeam(allTeams);
+      if (team == null) return; // No teams left.
+
+      final pick = Pick(
+        giornata: giornata,
+        team: team,
+        autoAssigned: true,
+      );
+
+      tx.set(pickRef, pick.toJson());
+      tx.update(userRef, {
+        'teamsUsed': FieldValue.arrayUnion([team]),
+        'lastPickDate': FieldValue.serverTimestamp(),
+      });
+
+      assignedPick = pick;
+    });
+
+    _invalidateCache();
+    return assignedPick;
+  }
+
   Future<List<UserRanking>> getLeaderboard() async {
     final query = await _db
         .collection('users')
@@ -251,9 +303,32 @@ class FirestoreRepo {
       'currentStreak': 0,
       'totalSurvivals': 0,
       'createdAt': FieldValue.serverTimestamp(),
-      'displayName': user?.displayName ?? 'Utente',
+      'displayName': _resolveDisplayName(user),
       'email': user?.email,
     });
+  }
+
+  /// Returns a human-readable display name for a Firebase user.
+  ///
+  /// Order of fallback:
+  ///  1. `user.displayName` (set by Google/Apple providers)
+  ///  2. Local part of the email (e.g. "mario.rossi" from "mario.rossi@x.it")
+  ///  3. A short suffix of the uid as a last resort
+  String _resolveDisplayName(User? user) {
+    final raw = user?.displayName?.trim();
+    if (raw != null && raw.isNotEmpty) return raw;
+
+    final email = user?.email;
+    if (email != null && email.contains('@')) {
+      final local = email.split('@').first.trim();
+      if (local.isNotEmpty) return local;
+    }
+
+    final uid = user?.uid ?? '';
+    if (uid.isNotEmpty) {
+      return 'Player ${uid.substring(0, uid.length > 6 ? 6 : uid.length)}';
+    }
+    return 'Player';
   }
 
   void _invalidateCache() {

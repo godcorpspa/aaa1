@@ -62,12 +62,27 @@ class StoricoScelteScreen extends ConsumerWidget {
                       ),
                     );
                   }
+                  // Sort chronologically (oldest → newest) so the user sees
+                  // their run from giornata 1 onward, stopping at whatever
+                  // matchday eliminated them.
+                  final ordered = [...picks]
+                    ..sort((a, b) => a.giornata.compareTo(b.giornata));
+
+                  // Find the matchday where the user lost (if any) so we can
+                  // render a clear "eliminato qui" separator below.
+                  final loseIdx = ordered.indexWhere(
+                    (p) => !p.isPending && !p.survived,
+                  );
+
                   return ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      _buildStatsHeader(picks),
+                      _buildStatsHeader(ordered),
                       const SizedBox(height: 16),
-                      ...picks.map((p) => _buildPickCard(p)),
+                      for (var i = 0; i < ordered.length; i++) ...[
+                        _buildPickCard(ordered[i]),
+                        if (i == loseIdx) _buildEliminatedDivider(),
+                      ],
                     ],
                   );
                 },
@@ -186,15 +201,28 @@ class StoricoScelteScreen extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // Status indicator
+          // Matchday number on the left
           Container(
-            width: 40,
-            height: 40,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.25)),
             ),
-            child: Icon(_pickIcon(pick), color: color, size: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'G${pick.giornata}',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(width: 12),
           // Details
@@ -204,53 +232,108 @@ class StoricoScelteScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      pick.team,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                    Flexible(
+                      child: Text(
+                        pick.team,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (pick.isDoubleChoice && pick.secondTeam != null) ...[
                       Text(' + ',
                           style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.5))),
-                      Text(
-                        pick.secondTeam!,
-                        style: const TextStyle(
-                          color: AppTheme.accentGold,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                      Flexible(
+                        child: Text(
+                          pick.secondTeam!,
+                          style: const TextStyle(
+                            color: AppTheme.accentGold,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Giornata ${pick.giornata}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 12,
-                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(_pickIcon(pick), color: color, size: 12),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        pick.resultDescription,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (pick.autoAssigned) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.warningAmber.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'AUTO',
+                          style: TextStyle(
+                            color: AppTheme.warningAmber,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
           ),
-          // Result badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEliminatedDivider() {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.errorRed.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppTheme.errorRed.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.horizontal_rule_rounded,
+            color: AppTheme.errorRed,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(
-              pick.resultDescription,
+              'Eliminato — la corsa si è fermata qui',
               style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                color: AppTheme.errorRed.withValues(alpha: 0.9),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
               ),
             ),
           ),
